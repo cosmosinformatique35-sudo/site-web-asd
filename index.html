@@ -2,14 +2,19 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Groupe Scolaire Aline Sitoé Diatta — Ziguinchor</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#06080F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Groupe Scolaire Aline Sitoé Diatta High School — Dakar · Keur Massar</title>
+<meta name="description" content="Groupe Scolaire Aline Sitoé Diatta High School — Excellence éducative au cœur de Keur Massar · Cité Gendarmerie, Dakar, Sénégal.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23C9A84C'/><text y='.9em' font-size='58' font-family='Georgia,serif' font-weight='bold' fill='%2306080F' x='8'>A</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
 
 <!-- ═══════════════════════════════════════════════
      FIREBASE CONFIG — Remplacez ces valeurs par
-     celles de votre projet Firebase Console :
-     Console → Paramètres → Vos applications → SDK
+     celles de votre projet Firebase Console
      ═══════════════════════════════════════════════ -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -21,9 +26,6 @@ import { getFirestore, collection, addDoc, getDocs, onSnapshot,
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
-// ══════════════════════════════════════════
-//  🔧 VOTRE CONFIGURATION FIREBASE ICI
-// ══════════════════════════════════════════
 const firebaseConfig = {
   apiKey:            "VOTRE_API_KEY",
   authDomain:        "VOTRE_PROJECT.firebaseapp.com",
@@ -49,6 +51,7 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById('adminEmail').textContent = user.email;
     document.getElementById('lockGalerie').classList.add('hidden');
     document.getElementById('lockSaisie').classList.add('hidden');
+    showToast('Connecté en tant qu\'administrateur', 'success');
   } else {
     window._adminConnecte = false;
     document.getElementById('adminBadge').classList.remove('visible');
@@ -61,7 +64,7 @@ window.firebaseConnexion = async function(email, password) {
   try { await signInWithEmailAndPassword(auth, email, password); return { ok: true }; }
   catch(e) { return { ok: false, code: e.code }; }
 };
-window.firebaseDeconnexion = async function() { await signOut(auth); };
+window.firebaseDeconnexion = async function() { await signOut(auth); showToast('Déconnecté avec succès', 'info'); };
 
 // ── ANNONCES ──
 window.chargerAnnonces = function() {
@@ -75,7 +78,7 @@ window.chargerAnnonces = function() {
       const typeLabel = {important:'Important', event:'Événement', news:'Actualité'}[a.type] || a.type;
       const dateStr = a.date?.toDate ? a.date.toDate().toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'}) : '';
       const card = document.createElement('div');
-      card.className = 'annonce-card';
+      card.className = 'annonce-card reveal-item';
       card.dataset.id = docSnap.id;
       card.innerHTML = `
         <span class="annonce-type ${typeClass}">${typeLabel}</span>
@@ -101,10 +104,12 @@ window.chargerAnnonces = function() {
 window.ajouterAnnonce = async function(titre, corps, type) {
   if (!titre || !corps) return;
   await addDoc(collection(db, 'annonces'), { titre, corps, type, date: serverTimestamp() });
+  showToast('Annonce publiée avec succès !', 'success');
 };
 window.supprimerAnnonce = async function(id) {
-  if (!confirm('Supprimer cette annonce ?')) return;
+  if (!confirmToast('Supprimer cette annonce ?')) return;
   await deleteDoc(doc(db, 'annonces', id));
+  showToast('Annonce supprimée', 'info');
 };
 
 // ── RÉSULTATS ──
@@ -123,6 +128,7 @@ window.chargerResultats = function() {
         const rankClass = rang===1?'rank-1':rang===2?'rank-2':rang===3?'rank-3':'';
         const rangLabel = rang===1?'1er':rang+'ème';
         const row = document.createElement('tr');
+        row.style.animationDelay = (rang*0.05)+'s';
         row.innerHTML = `
           <td class="${rankClass}">${rangLabel}</td>
           <td>${r.nom}</td><td>${r.classe}</td>
@@ -141,11 +147,13 @@ window.chargerResultats = function() {
 window.sauvegarderResultat = async function(nom, classe, cycle, t1, t2, t3) {
   const moy = ((t1+t2+t3)/3).toFixed(1);
   await addDoc(collection(db, 'resultats'), { nom, classe, cycle, t1, t2, t3, moy: parseFloat(moy), date: serverTimestamp() });
+  showToast(`Résultat de ${nom} enregistré (Moy: ${moy})`, 'success');
   return moy;
 };
 window.supprimerResultat = async function(id) {
   if (!confirm('Supprimer ce résultat ?')) return;
   await deleteDoc(doc(db, 'resultats', id));
+  showToast('Résultat supprimé', 'info');
 };
 
 // ── GALERIE ──
@@ -168,6 +176,10 @@ window.chargerGalerie = function() {
       overlay.innerHTML = `<span>${p.nom || ''}</span>
         ${window._adminConnecte ? `<button class="delete-btn" style="position:absolute;top:0.5rem;right:0.5rem" onclick="supprimerPhoto('${docSnap.id}','${p.storagePath}')">✕</button>` : ''}`;
       card.appendChild(overlay);
+      card.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-btn')) return;
+        openLightbox(p.url, p.nom || '');
+      });
       grid.appendChild(card);
     });
     grid.appendChild(uploadZone);
@@ -185,6 +197,7 @@ window.supprimerPhoto = async function(id, storagePath) {
   if (!confirm('Supprimer cette photo ?')) return;
   await deleteDoc(doc(db, 'galerie', id));
   if (storagePath) { try { await deleteObject(ref(storage, storagePath)); } catch(e) {} }
+  showToast('Photo supprimée', 'info');
 };
 
 // ── MESSAGES CONTACT ──
@@ -207,6 +220,7 @@ window.addEventListener('DOMContentLoaded', () => {
   --gold:      #C9A84C;
   --gold-lt:   #E8C96A;
   --gold-dk:   #A07830;
+  --gold-glow: rgba(201,168,76,0.35);
   --navy:      #06080F;
   --navy2:     #0C1020;
   --navy3:     #141C30;
@@ -217,6 +231,9 @@ window.addEventListener('DOMContentLoaded', () => {
   --white:     #FAFAF8;
   --muted:     #8A90A8;
   --border:    rgba(201,168,76,0.18);
+  --success:   #2EB464;
+  --error:     #E05050;
+  --radius:    14px;
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { scroll-behavior: smooth; }
@@ -225,31 +242,407 @@ body {
   background: var(--navy);
   color: var(--white);
   overflow-x: hidden;
+  cursor: default;
 }
 
 /* ═══════════════════════════════════════════
-   DECORATIVE PATTERN (fond textile)
+   ENHANCED VISUAL UPGRADES
 ═══════════════════════════════════════════ */
-.pattern-bg {
-  background-image:
-    repeating-linear-gradient(45deg, rgba(201,168,76,0.03) 0, rgba(201,168,76,0.03) 1px, transparent 0, transparent 50%),
-    repeating-linear-gradient(-45deg, rgba(201,168,76,0.03) 0, rgba(201,168,76,0.03) 1px, transparent 0, transparent 50%);
-  background-size: 24px 24px;
+
+/* Animated gradient mesh background for hero */
+.hero {
+  background: 
+    radial-gradient(ellipse 120% 80% at 20% 50%, rgba(201,168,76,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 100% at 80% 20%, rgba(139,58,26,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 60% at 60% 80%, rgba(201,168,76,0.04) 0%, transparent 50%),
+    var(--navy);
+}
+
+/* Glowing accent text */
+.accent {
+  background: linear-gradient(135deg, var(--gold-dk) 0%, var(--gold-lt) 50%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 30px rgba(201,168,76,0.3));
+}
+
+/* Enhanced navigation with glass blur */
+nav {
+  background: rgba(6,8,15,0.92) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+}
+
+/* Section label pill style */
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.2);
+  padding: 6px 16px;
+  border-radius: 100px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+}
+
+/* Gold bar style */
+.gold-bar {
+  width: 48px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold-dk), var(--gold-lt));
+  border-radius: 2px;
+  margin: 14px 0 20px;
+  box-shadow: 0 0 12px rgba(201,168,76,0.4);
+}
+
+/* Cycle cards with colored icon backgrounds */
+.cycle-card .cycle-icon {
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.04));
+  border: 1px solid rgba(201,168,76,0.15);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.7rem;
+  margin-bottom: 1.3rem;
+  transition: all 0.3s;
+}
+.cycle-card:hover .cycle-icon {
+  background: linear-gradient(135deg, rgba(201,168,76,0.2), rgba(201,168,76,0.08));
+  transform: scale(1.08) rotate(-3deg);
+  box-shadow: 0 8px 20px rgba(201,168,76,0.15);
+}
+
+/* Testimony cards glow on hover */
+.temoignage-card {
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.temoignage-card:hover {
+  transform: translateY(-8px) scale(1.01) !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(201,168,76,0.2) !important;
+}
+
+/* Stats with shine animation */
+@keyframes statShine {
+  0%, 100% { filter: drop-shadow(0 0 0px transparent); }
+  50% { filter: drop-shadow(0 0 20px rgba(201,168,76,0.5)); }
+}
+.stat-num { animation: statShine 3s ease-in-out infinite; }
+
+/* Footer gradient */
+footer {
+  background: linear-gradient(180deg, var(--navy2) 0%, #030508 100%) !important;
+}
+
+/* Enhanced scroll reveal */
+.reveal-item, .reveal-left, .reveal-right {
+  transition: opacity 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+              transform 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+}
+
+/* Smoother button interactions */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.15) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.5s;
+}
+.btn-primary:hover::before { transform: translateX(100%); }
+
+/* WhatsApp FAB button */
+.fab-whatsapp {
+  position: fixed;
+  bottom: 5.5rem;
+  right: 1.5rem;
+  z-index: 990;
+  width: 50px; height: 50px;
+  background: #25D366;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 20px rgba(37,211,102,0.4);
+  text-decoration: none;
+  transition: all 0.25s;
+  animation: fabPulse 2.5s ease-in-out infinite;
+}
+.fab-whatsapp:hover { transform: scale(1.12); box-shadow: 0 8px 30px rgba(37,211,102,0.5); }
+@keyframes fabPulse {
+  0%,100% { box-shadow: 0 4px 20px rgba(37,211,102,0.4), 0 0 0 0 rgba(37,211,102,0.3); }
+  50% { box-shadow: 0 4px 20px rgba(37,211,102,0.4), 0 0 0 10px rgba(37,211,102,0); }
+}
+
+/* Annonce cards improved */
+.annonce-card { border-radius: 16px !important; }
+.annonce-card:hover { box-shadow: 0 16px 40px rgba(0,0,0,0.25), 0 0 0 1px rgba(201,168,76,0.15) !important; }
+
+/* Table striping */
+table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+table tbody tr:hover { background: rgba(201,168,76,0.04); }
+
+/* Form inputs glow on focus */
+input:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-color: rgba(201,168,76,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.1) !important;
+}
+
+/* Section wave divider between hero and next section */
+.hero-wave {
+  display: block;
+  width: 100%;
+  margin-bottom: -2px;
+}
+
+/* Location badge in hero */
+.location-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(201,168,76,0.08);
+  border: 1px solid rgba(201,168,76,0.25);
+  padding: 5px 14px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+  margin-top: 1.2rem;
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════
+   LOGO UPLOAD SYSTEM
+═══════════════════════════════════════════ */
+.nav-logo-emblem img,
+.preloader-emblem img,
+.footer-emblem img {
+  width: 100%; height: 100%;
+  object-fit: contain; border-radius: inherit; padding: 3px;
+}
+#logoUploadTrigger {
+  position: fixed; bottom: 1.5rem; left: 1.5rem;
+  z-index: 990; background: var(--navy3);
+  border: 1px solid var(--border); color: var(--gold);
+  font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600;
+  padding: 10px 16px; border-radius: 100px; cursor: pointer;
+  display: flex; align-items: center; gap: 7px; transition: all 0.25s;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3); letter-spacing: 0.04em;
+}
+#logoUploadTrigger:hover {
+  background: rgba(201,168,76,0.1); border-color: var(--gold);
+  transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+#logoModal {
+  position: fixed; inset: 0; z-index: 9998;
+  background: rgba(6,8,15,0.88); backdrop-filter: blur(18px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: all 0.3s;
+}
+#logoModal.open { opacity: 1; visibility: visible; }
+.logo-modal-box {
+  background: var(--navy3); border: 1px solid var(--border);
+  border-radius: 24px; padding: 2.5rem;
+  width: min(480px, 92vw);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+  transform: translateY(20px) scale(0.97);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+#logoModal.open .logo-modal-box { transform: translateY(0) scale(1); }
+.logo-modal-close {
+  position: absolute; top: 1.2rem; right: 1.2rem;
+  background: rgba(255,255,255,0.06); border: none; color: var(--muted);
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  font-size: 14px; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+}
+.logo-modal-close:hover { background: rgba(255,255,255,0.12); color: var(--white); }
+.logo-modal-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.6rem; font-weight: 700; color: var(--white); margin-bottom: 0.4rem;
+}
+.logo-modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
+.logo-drop-zone {
+  border: 2px dashed rgba(201,168,76,0.3); border-radius: 16px;
+  padding: 2.5rem 1.5rem; text-align: center; cursor: pointer;
+  transition: all 0.25s; background: rgba(201,168,76,0.03);
+  position: relative; overflow: hidden;
+}
+.logo-drop-zone:hover, .logo-drop-zone.dragover {
+  border-color: var(--gold); background: rgba(201,168,76,0.07);
+}
+.logo-drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.logo-drop-icon { font-size: 2.5rem; margin-bottom: 0.8rem; display: block; }
+.logo-drop-text { font-weight: 600; font-size: 14px; color: var(--white); margin-bottom: 0.4rem; }
+.logo-drop-hint { font-size: 12px; color: var(--muted); }
+#logoPreviewArea { margin-top: 1.8rem; display: none; }
+.logo-preview-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--muted); margin-bottom: 1rem;
+}
+.logo-previews { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+.logo-preview-item { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.logo-preview-box {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  overflow: hidden; flex-shrink: 0;
+}
+.logo-preview-box img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
+.logo-preview-caption { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.logo-modal-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+.logo-btn-apply {
+  flex: 1; padding: 12px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  color: var(--navy); font-weight: 700; font-size: 14px;
+  border: none; cursor: pointer; transition: all 0.25s;
+  font-family: 'Outfit', sans-serif; letter-spacing: 0.03em;
+}
+.logo-btn-apply:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.logo-btn-apply:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.logo-btn-reset {
+  padding: 12px 18px; border-radius: 10px;
+  background: rgba(255,255,255,0.05); color: var(--muted);
+  font-weight: 600; font-size: 13px;
+  border: 1px solid rgba(255,255,255,0.08); cursor: pointer;
+  transition: all 0.25s; font-family: 'Outfit', sans-serif;
+}
+.logo-btn-reset:hover { color: var(--white); border-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); }
+@keyframes logoSuccess { 0%{transform:scale(1)} 40%{transform:scale(1.15)} 100%{transform:scale(1)} }
+.logo-applied { animation: logoSuccess 0.5s ease; }
+
+/* ── Safe area (iPhone notch / home bar) ── */
+nav {
+  padding-left: max(1.2rem, env(safe-area-inset-left));
+  padding-right: max(1.2rem, env(safe-area-inset-right));
+}
+.mobile-nav {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+#logoUploadTrigger {
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.fab-whatsapp {
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(5rem, calc(env(safe-area-inset-bottom) + 5rem));
+}
+.fab-group {
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--navy2); }
+::-webkit-scrollbar-thumb { background: var(--gold-dk); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* ═══════════════════════════════════════════
+   PRELOADER
+═══════════════════════════════════════════ */
+#preloader {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--navy);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 1.5rem;
+  transition: opacity 0.6s ease, visibility 0.6s ease;
+}
+#preloader.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+.preloader-emblem {
+  width: 80px; height: 80px; border-radius: 20px;
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 700; font-size: 26px; color: var(--navy);
+  animation: preloaderPulse 1.2s ease-in-out infinite;
+  box-shadow: 0 0 0 0 var(--gold-glow);
+}
+@keyframes preloaderPulse {
+  0%,100% { transform: scale(1); box-shadow: 0 0 0 0 var(--gold-glow); }
+  50% { transform: scale(1.06); box-shadow: 0 0 0 20px transparent; }
+}
+.preloader-bar-wrap {
+  width: 200px; height: 3px;
+  background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden;
+}
+.preloader-bar {
+  height: 100%; width: 0%; background: var(--gold); border-radius: 2px;
+  animation: preloaderLoad 1.4s ease-in-out forwards;
+}
+@keyframes preloaderLoad { to { width: 100%; } }
+.preloader-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem; color: var(--gold); letter-spacing: 0.08em;
+}
+
+/* ═══════════════════════════════════════════
+   SCROLL PROGRESS BAR
+═══════════════════════════════════════════ */
+#scrollProgress {
+  position: fixed; top: 0; left: 0; z-index: 1001;
+  height: 3px; width: 0%;
+  background: linear-gradient(90deg, var(--gold-dk), var(--gold), var(--gold-lt));
+  transition: width 0.1s linear;
+  box-shadow: 0 0 8px var(--gold-glow);
+}
+
+/* ═══════════════════════════════════════════
+   ANNOUNCEMENT TICKER
+═══════════════════════════════════════════ */
+#tickerBar {
+  position: fixed; top: 0; left: 0; width: 100%; z-index: 999;
+  background: linear-gradient(90deg, var(--gold-dk), var(--gold));
+  height: 36px; overflow: hidden;
+  display: flex; align-items: center;
+}
+.ticker-label {
+  flex-shrink: 0; background: var(--navy);
+  color: var(--gold); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 0 1.2rem; height: 100%;
+  display: flex; align-items: center; gap: 6px; z-index: 1;
+}
+.ticker-track {
+  flex: 1; overflow: hidden; position: relative;
+  mask: linear-gradient(90deg, transparent 0, black 5%, black 95%, transparent 100%);
+}
+.ticker-inner {
+  display: flex; gap: 0; white-space: nowrap;
+  animation: tickerScroll 28s linear infinite;
+}
+.ticker-item {
+  color: var(--navy); font-size: 12px; font-weight: 600;
+  padding: 0 3rem; display: inline-flex; align-items: center; gap: 8px;
+}
+.ticker-item::after { content: '✦'; opacity: 0.5; }
+@keyframes tickerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 /* ═══════════════════════════════════════════
    NAVIGATION
 ═══════════════════════════════════════════ */
 nav {
-  position: fixed; top: 0; width: 100%; z-index: 1000;
+  position: fixed; top: 36px; width: 100%; z-index: 1000;
   background: rgba(6,8,15,0.96);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 3.5rem; height: 72px;
-  transition: box-shadow 0.3s;
+  transition: box-shadow 0.3s, top 0.3s;
 }
-nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.4); }
+nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.5); }
+nav.ticker-hidden { top: 0; }
 .nav-logo { display: flex; align-items: center; gap: 14px; text-decoration: none; }
 .nav-logo-emblem {
   width: 46px; height: 46px; border-radius: 10px;
@@ -258,6 +651,11 @@ nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.4); }
   font-family: 'Cormorant Garamond', serif;
   font-weight: 700; font-size: 17px; color: var(--navy);
   letter-spacing: 0.02em; flex-shrink: 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.nav-logo:hover .nav-logo-emblem {
+  transform: scale(1.06);
+  box-shadow: 0 4px 20px var(--gold-glow);
 }
 .nav-logo-text { line-height: 1.25; }
 .nav-logo-text .school-name {
@@ -271,13 +669,13 @@ nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.4); }
 }
 .nav-center { display: flex; gap: 0; list-style: none; }
 .nav-center li a {
-  display: block; padding: 0 1.2rem; height: 72px; line-height: 72px;
+  display: block; padding: 0 1.1rem; height: 72px; line-height: 72px;
   color: var(--cream2); text-decoration: none; font-size: 13.5px;
   font-weight: 400; letter-spacing: 0.02em; transition: color 0.2s;
   position: relative;
 }
 .nav-center li a::after {
-  content: ''; position: absolute; bottom: 0; left: 1.2rem; right: 1.2rem;
+  content: ''; position: absolute; bottom: 0; left: 1.1rem; right: 1.1rem;
   height: 2px; background: var(--gold); transform: scaleX(0);
   transition: transform 0.25s ease; transform-origin: left;
 }
@@ -290,7 +688,7 @@ nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.4); }
   font-weight: 600; font-size: 13px; text-decoration: none;
   transition: all 0.2s; letter-spacing: 0.02em;
 }
-.nav-cta:hover { background: var(--gold-lt); transform: translateY(-1px); }
+.nav-cta:hover { background: var(--gold-lt); transform: translateY(-1px); box-shadow: 0 4px 16px var(--gold-glow); }
 .admin-badge {
   display: none; align-items: center; gap: 8px;
   background: rgba(201,168,76,0.12);
@@ -303,6 +701,121 @@ nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.4); }
 .admin-badge.visible { display: flex; }
 #adminEmail { font-size: 11px; opacity: 0.7; font-weight: 400; }
 
+/* Hamburger menu */
+.hamburger {
+  display: none; flex-direction: column; gap: 5px; cursor: pointer;
+  padding: 8px; border-radius: 8px; transition: background 0.2s;
+  border: none; background: none;
+}
+.hamburger:hover { background: rgba(255,255,255,0.06); }
+.hamburger span {
+  display: block; width: 22px; height: 2px;
+  background: var(--white); border-radius: 2px; transition: all 0.3s;
+}
+.hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(5px, 5px); }
+.hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
+
+/* Mobile nav */
+.mobile-nav {
+  display: none; position: fixed;
+  top: 60px; left: 0; width: 100%; z-index: 998;
+  background: rgba(6,8,15,0.98); backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  flex-direction: column; padding: 1rem 1.5rem 1.5rem;
+  transform: translateY(-10px); opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+.mobile-nav.open { transform: translateY(0); opacity: 1; pointer-events: all; }
+.mobile-nav a {
+  color: var(--cream2); text-decoration: none; padding: 1rem 0;
+  font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex; align-items: center; gap: 10px;
+  transition: color 0.2s; font-weight: 500;
+  min-height: 48px; /* touch target */
+}
+.mobile-nav a:hover, .mobile-nav a:active { color: var(--gold); }
+.mobile-nav a:last-child { border-bottom: none; }
+/* Contact CTA in mobile menu */
+.mobile-nav .mobile-cta {
+  margin-top: 1rem; padding: 13px 20px;
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  color: var(--navy) !important; font-weight: 700 !important;
+  border-radius: 10px; text-align: center; justify-content: center;
+  border-bottom: none !important;
+}
+.mobile-nav .mobile-cta:hover { opacity: 0.9; color: var(--navy) !important; }
+
+/* ═══════════════════════════════════════════
+   SECTION BASE STYLES
+═══════════════════════════════════════════ */
+section {
+  padding: 7rem 3.5rem;
+  position: relative;
+}
+.section-label {
+  font-size: 11px; color: var(--gold); text-transform: uppercase;
+  letter-spacing: 0.18em; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-bottom: 0.6rem;
+}
+.section-label::before {
+  content: ''; display: inline-block;
+  width: 24px; height: 1.5px; background: var(--gold);
+}
+.gold-bar {
+  width: 48px; height: 3px; border-radius: 2px;
+  background: linear-gradient(90deg, var(--gold-dk), var(--gold-lt));
+  margin: 0.8rem 0 1.6rem;
+  box-shadow: 0 0 12px rgba(201,168,76,0.4);
+}
+.section-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  font-weight: 700; line-height: 1.15;
+  margin-bottom: 1rem; color: var(--white);
+}
+.section-desc {
+  color: var(--muted); font-size: 15px; line-height: 1.85;
+  max-width: 580px; margin-bottom: 1rem;
+}
+
+/* Reveal animations */
+.reveal-item {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal-item.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-left {
+  opacity: 0;
+  transform: translateX(-30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal-left.visible { opacity: 1; transform: translateX(0); }
+.reveal-right {
+  opacity: 0;
+  transform: translateX(30px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal-right.visible { opacity: 1; transform: translateX(0); }
+
+/* Stagger delays */
+.delay-1 { transition-delay: 0.1s !important; }
+.delay-2 { transition-delay: 0.2s !important; }
+.delay-3 { transition-delay: 0.3s !important; }
+.delay-4 { transition-delay: 0.4s !important; }
+.delay-5 { transition-delay: 0.5s !important; }
+.delay-6 { transition-delay: 0.6s !important; }
+.delay-7 { transition-delay: 0.7s !important; }
+.delay-8 { transition-delay: 0.8s !important; }
+
 /* ═══════════════════════════════════════════
    HERO
 ═══════════════════════════════════════════ */
@@ -313,21 +826,43 @@ nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.4); }
     radial-gradient(ellipse 60% 80% at 10% 80%, rgba(20,28,48,0.9) 0%, transparent 60%),
     linear-gradient(135deg, var(--navy) 0%, #0A1025 50%, #0D1530 100%);
   display: flex; align-items: center;
-  padding: 120px 3.5rem 80px;
+  padding: 160px 3.5rem 80px;
   position: relative; overflow: hidden;
 }
-.hero-pattern {
-  position: absolute; inset: 0;
+.hero-bg-pattern {
+  position: absolute; inset: 0; pointer-events: none;
   background-image:
     repeating-linear-gradient(45deg, rgba(201,168,76,0.025) 0, rgba(201,168,76,0.025) 1px, transparent 0, transparent 30px),
     repeating-linear-gradient(-45deg, rgba(201,168,76,0.025) 0, rgba(201,168,76,0.025) 1px, transparent 0, transparent 30px);
 }
 .hero-orb {
   position: absolute; border-radius: 50%;
-  filter: blur(80px); pointer-events: none;
+  filter: blur(90px); pointer-events: none; animation: orbFloat 8s ease-in-out infinite;
 }
-.hero-orb-1 { width: 600px; height: 600px; top: -100px; right: -100px; background: rgba(201,168,76,0.08); }
-.hero-orb-2 { width: 400px; height: 400px; bottom: -50px; left: 30%; background: rgba(139,58,26,0.1); }
+.hero-orb-1 { width: 700px; height: 700px; top: -150px; right: -150px; background: rgba(201,168,76,0.07); }
+.hero-orb-2 { width: 500px; height: 500px; bottom: -100px; left: 30%; background: rgba(139,58,26,0.1); animation-delay: -4s; }
+.hero-orb-3 { width: 300px; height: 300px; top: 40%; right: 15%; background: rgba(26,60,139,0.08); animation-delay: -2s; }
+@keyframes orbFloat {
+  0%,100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-30px) scale(1.05); }
+}
+
+/* Floating particles */
+.hero-particles {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+}
+.particle {
+  position: absolute; border-radius: 50%;
+  background: var(--gold); opacity: 0;
+  animation: particleFloat var(--dur, 8s) var(--delay, 0s) ease-in-out infinite;
+}
+@keyframes particleFloat {
+  0% { transform: translateY(100vh) scale(0); opacity: 0; }
+  10% { opacity: var(--op, 0.3); }
+  90% { opacity: var(--op, 0.3); }
+  100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+}
+
 .hero-content { max-width: 720px; position: relative; z-index: 1; }
 .hero-eyebrow {
   display: inline-flex; align-items: center; gap: 10px;
@@ -337,132 +872,132 @@ nav.scrolled { box-shadow: 0 4px 40px rgba(0,0,0,0.4); }
   font-size: 11.5px; color: var(--gold);
   letter-spacing: 0.12em; text-transform: uppercase;
   margin-bottom: 2.2rem;
-  animation: fadeUp 0.8s ease both;
+  animation: fadeUp 0.9s ease both;
 }
+.eyebrow-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--gold); animation: blink 2s ease-in-out infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
 .hero h1 {
   font-family: 'Cormorant Garamond', serif;
   font-size: clamp(3rem, 5.5vw, 5rem);
   font-weight: 700; line-height: 1.08;
   margin-bottom: 1.8rem;
-  animation: fadeUp 0.8s 0.1s ease both;
+  animation: fadeUp 0.9s 0.15s ease both;
 }
-.hero h1 .accent { color: var(--gold); display: block; font-style: italic; }
+.hero h1 .accent {
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold-lt));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: block; font-style: italic;
+}
 .hero-desc {
   font-size: 1.1rem; color: var(--muted);
   line-height: 1.85; margin-bottom: 2.8rem;
   max-width: 580px;
-  animation: fadeUp 0.8s 0.2s ease both;
+  animation: fadeUp 0.9s 0.25s ease both;
 }
-.hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; animation: fadeUp 0.8s 0.3s ease both; }
+.hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; animation: fadeUp 0.9s 0.35s ease both; }
 .btn-primary {
-  background: var(--gold); color: var(--navy);
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  color: var(--navy);
   padding: 15px 34px; border-radius: 10px;
   font-weight: 700; font-size: 14.5px; text-decoration: none;
   transition: all 0.25s; letter-spacing: 0.03em;
+  box-shadow: 0 4px 20px rgba(160,120,48,0.3);
 }
-.btn-primary:hover { background: var(--gold-lt); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(201,168,76,0.3); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(201,168,76,0.4); filter: brightness(1.1); }
 .btn-outline {
   border: 1.5px solid rgba(201,168,76,0.35); color: var(--white);
   padding: 15px 34px; border-radius: 10px;
   font-weight: 500; font-size: 14.5px; text-decoration: none;
   transition: all 0.25s;
 }
-.btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+.btn-outline:hover { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.05); }
 
 /* Stats strip */
 .hero-stats {
   display: flex; gap: 0;
   margin-top: 5rem; padding-top: 3rem;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  animation: fadeUp 0.8s 0.4s ease both;
+  border-top: 1px solid rgba(201,168,76,0.12);
+  animation: fadeUp 0.9s 0.45s ease both;
+  flex-wrap: wrap;
 }
-.stat-item { flex: 1; padding-right: 2.5rem; }
-.stat-item + .stat-item { border-left: 1px solid rgba(255,255,255,0.07); padding-left: 2.5rem; }
+.stat-item {
+  flex: 1; min-width: 120px; padding: 0 2.5rem 0 0;
+  border-right: 1px solid rgba(201,168,76,0.1);
+}
+.stat-item:last-child { border-right: none; }
 .stat-num {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 2.6rem; font-weight: 700; color: var(--gold);
-  line-height: 1;
+  font-size: 2.6rem; font-weight: 700;
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold-lt));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  line-height: 1.1;
 }
-.stat-label { font-size: 12.5px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+.stat-label { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 0.4rem; }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(24px); }
+  from { opacity: 0; transform: translateY(22px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ═══════════════════════════════════════════
-   SECTION BASE
+   APROPOS / PRESENTATION
 ═══════════════════════════════════════════ */
-section { padding: 100px 3.5rem; }
-.section-label {
-  font-size: 11px; color: var(--gold); text-transform: uppercase;
-  letter-spacing: 0.15em; font-weight: 600; margin-bottom: 1rem;
+.apropos {
+  background: var(--navy3);
+  border-top: 1px solid rgba(255,255,255,0.04);
 }
-.gold-bar { width: 48px; height: 3px; background: var(--gold); border-radius: 2px; margin-bottom: 1.5rem; }
-.section-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(2.2rem, 3.5vw, 3.2rem);
-  font-weight: 700; line-height: 1.12; margin-bottom: 1.2rem;
-}
-.section-desc { color: var(--muted); font-size: 1.05rem; line-height: 1.8; max-width: 580px; }
-
-/* ═══════════════════════════════════════════
-   À PROPOS
-═══════════════════════════════════════════ */
-.apropos { background: var(--navy2); }
 .apropos-inner {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 6rem; align-items: center;
+  gap: 6rem; align-items: center; max-width: 1200px; margin: 0 auto;
 }
-.apropos-text .section-desc { max-width: 100%; margin-bottom: 2rem; }
-.apropos-features { display: flex; flex-direction: column; gap: 1.2rem; margin-top: 2rem; }
+.apropos-features { margin-top: 2.5rem; display: flex; flex-direction: column; gap: 1.4rem; }
 .apropos-feature {
   display: flex; gap: 1rem; align-items: flex-start;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px; padding: 1rem 1.25rem;
-  transition: border-color 0.2s;
+  padding: 1.1rem 1.3rem; border-radius: 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.25s;
 }
-.apropos-feature:hover { border-color: var(--border); }
-.feature-icon {
-  width: 40px; height: 40px; flex-shrink: 0;
-  background: rgba(201,168,76,0.1);
-  border-radius: 10px; display: flex; align-items: center;
-  justify-content: center; font-size: 1.2rem;
-}
-.feature-title { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
-.feature-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.apropos-feature:hover { background: rgba(201,168,76,0.04); border-color: var(--border); transform: translateX(4px); }
+.feature-icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+.feature-title { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
+.feature-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
 .apropos-images {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 220px 220px;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto;
   gap: 1rem;
 }
 .img-placeholder {
-  border-radius: 14px; overflow: hidden;
-  background: var(--navy3);
-  border: 1px solid rgba(255,255,255,0.06);
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 0.6rem; color: var(--muted);
-  font-size: 12px; text-align: center; padding: 1rem;
-  position: relative;
+  background: var(--navy4);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--radius);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.5rem; padding: 2rem; aspect-ratio: 4/3;
+  position: relative; overflow: hidden;
+  transition: border-color 0.2s;
 }
-.img-placeholder .img-icon { font-size: 2rem; opacity: 0.3; }
-.img-placeholder:first-child { grid-row: span 2; }
-.img-placeholder.tall { grid-row: span 2; }
+.img-placeholder:hover { border-color: var(--border); }
+.img-placeholder.tall { grid-column: 1/-1; aspect-ratio: 16/7; }
+.img-icon { font-size: 2.2rem; opacity: 0.35; }
 .img-label {
   position: absolute; bottom: 0; left: 0; right: 0;
-  background: linear-gradient(to top, rgba(6,8,15,0.85), transparent);
-  padding: 1.2rem 1rem 0.8rem;
-  font-size: 12px; color: var(--cream); font-weight: 500;
-  opacity: 0; transition: opacity 0.2s;
+  background: linear-gradient(to top, rgba(6,8,15,0.9), transparent);
+  padding: 0.6rem 1rem; font-size: 11.5px; color: var(--gold);
+  font-weight: 500; letter-spacing: 0.03em;
 }
-.img-placeholder:hover .img-label { opacity: 1; }
 
 /* ═══════════════════════════════════════════
-   NOS CYCLES
+   CYCLES
 ═══════════════════════════════════════════ */
-.cycles { background: var(--navy); }
+.cycles {
+  background: var(--navy);
+  text-align: center;
+}
+.cycles > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
 .cycles-grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem; margin-top: 3.5rem;
@@ -470,56 +1005,51 @@ section { padding: 100px 3.5rem; }
 .cycle-card {
   background: var(--navy3);
   border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 18px; padding: 2.2rem;
-  transition: all 0.3s; position: relative; overflow: hidden;
+  border-radius: 18px; padding: 2.5rem 2rem;
+  text-align: left; transition: all 0.3s; position: relative; overflow: hidden;
 }
 .cycle-card::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0;
-  height: 3px; background: var(--gold); transform: scaleX(0);
-  transform-origin: left; transition: transform 0.35s ease;
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--gold-dk), var(--gold-lt));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.35s ease;
 }
-.cycle-card:hover { transform: translateY(-6px); border-color: var(--border); box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+.cycle-card:hover { transform: translateY(-6px); border-color: var(--border); box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
 .cycle-card:hover::before { transform: scaleX(1); }
-.cycle-icon {
-  width: 60px; height: 60px; border-radius: 16px;
-  background: rgba(201,168,76,0.1);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.7rem; margin-bottom: 1.5rem;
-}
-.cycle-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1.5rem; font-weight: 700; margin-bottom: 0.8rem;
-  color: var(--white);
-}
-.cycle-desc { font-size: 13.5px; color: var(--muted); line-height: 1.7; margin-bottom: 1.5rem; }
+.cycle-icon { font-size: 2.4rem; margin-bottom: 1.1rem; display: block; }
+.cycle-title { font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 700; margin-bottom: 0.8rem; color: var(--gold); }
+.cycle-desc { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 1.5rem; }
 .cycle-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .cycle-tag {
-  font-size: 11px; padding: 4px 12px; border-radius: 50px;
-  background: rgba(201,168,76,0.08);
+  padding: 4px 12px; border-radius: 50px;
+  background: rgba(201,168,76,0.1);
   border: 1px solid rgba(201,168,76,0.2);
-  color: var(--gold); font-weight: 500;
+  font-size: 11px; color: var(--gold); font-weight: 600; letter-spacing: 0.05em;
 }
 
 /* ═══════════════════════════════════════════
    POURQUOI NOUS
 ═══════════════════════════════════════════ */
-.pourquoi { background: var(--navy2); }
+.pourquoi {
+  background: var(--navy2);
+}
+.pourquoi > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
 .pourquoi-grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 2rem; margin-top: 3.5rem;
 }
 .pourquoi-card {
   border-left: 2px solid var(--gold);
-  padding: 1.8rem 1.8rem 1.8rem 2rem;
+  padding: 2rem 2rem 2rem 2.2rem;
   background: rgba(255,255,255,0.02);
   border-radius: 0 14px 14px 0;
-  transition: background 0.2s;
+  transition: all 0.25s; position: relative;
 }
-.pourquoi-card:hover { background: rgba(201,168,76,0.04); }
+.pourquoi-card:hover { background: rgba(201,168,76,0.04); transform: translateX(4px); }
 .pourquoi-num {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 3rem; font-weight: 700; color: var(--gold);
-  opacity: 0.25; line-height: 1; margin-bottom: 0.8rem;
+  font-size: 3.2rem; font-weight: 700; color: var(--gold);
+  opacity: 0.2; line-height: 1; margin-bottom: 0.8rem;
 }
 .pourquoi-title { font-size: 1.05rem; font-weight: 600; margin-bottom: 0.7rem; }
 .pourquoi-desc { font-size: 13.5px; color: var(--muted); line-height: 1.7; }
@@ -528,6 +1058,7 @@ section { padding: 100px 3.5rem; }
    CURRICULUM
 ═══════════════════════════════════════════ */
 .curriculum { background: var(--navy); }
+.curriculum > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
 .curriculum-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3.5rem; }
 .curriculum-header .section-desc { margin-bottom: 0; }
 .curriculum-grid {
@@ -540,13 +1071,20 @@ section { padding: 100px 3.5rem; }
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 14px; padding: 1.6rem;
   transition: all 0.25s; cursor: default;
+  position: relative; overflow: hidden;
+}
+.curriculum-card::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(201,168,76,0.06) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.25s;
 }
 .curriculum-card:hover {
   border-color: rgba(201,168,76,0.3);
-  background: rgba(201,168,76,0.04);
-  transform: translateY(-3px);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
 }
-.curriculum-emoji { font-size: 1.8rem; margin-bottom: 0.9rem; }
+.curriculum-card:hover::after { opacity: 1; }
+.curriculum-emoji { font-size: 1.9rem; margin-bottom: 0.9rem; display: block; }
 .curriculum-name { font-weight: 600; font-size: 14px; margin-bottom: 0.5rem; }
 .curriculum-sub { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
 
@@ -554,6 +1092,7 @@ section { padding: 100px 3.5rem; }
    ANNONCES
 ═══════════════════════════════════════════ */
 .annonces { background: var(--navy2) }
+.annonces > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
 .annonces-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(290px,1fr));
   gap: 1.5rem; margin-top: 3rem;
@@ -564,7 +1103,7 @@ section { padding: 100px 3.5rem; }
   border-radius: 14px; padding: 1.6rem;
   transition: all 0.25s; cursor: pointer; position: relative;
 }
-.annonce-card:hover { border-color: var(--border); transform: translateY(-3px); }
+.annonce-card:hover { border-color: var(--border); transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
 .annonce-type {
   display: inline-block; padding: 4px 12px; border-radius: 50px;
   font-size: 10.5px; font-weight: 600; text-transform: uppercase;
@@ -581,15 +1120,26 @@ section { padding: 100px 3.5rem; }
   display: flex; align-items: center; justify-content: center;
   flex-direction: column; min-height: 140px;
 }
-.annonce-add-btn:hover { border-color: rgba(201,168,76,0.5) !important; background: rgba(201,168,76,0.03); }
+.annonce-add-btn:hover { border-color: rgba(201,168,76,0.5) !important; }
+.fb-loading {
+  display: flex; align-items: center; gap: 0.8rem;
+  color: var(--muted); font-size: 13.5px; padding: 2rem 0;
+}
+.fb-spinner {
+  width: 18px; height: 18px; border: 2px solid rgba(201,168,76,0.2);
+  border-top-color: var(--gold); border-radius: 50%;
+  animation: spin 0.8s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ═══════════════════════════════════════════
    RÉSULTATS
 ═══════════════════════════════════════════ */
 .resultats { background: var(--navy); }
+.resultats > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
 .tabs {
   display: flex; border-bottom: 1px solid rgba(255,255,255,0.07);
-  margin-top: 2.5rem; gap: 0;
+  margin-top: 2.5rem; gap: 0; flex-wrap: wrap;
 }
 .tab-btn {
   padding: 13px 26px; background: none; border: none;
@@ -602,7 +1152,7 @@ section { padding: 100px 3.5rem; }
 .tab-btn:hover:not(.active) { color: var(--white); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-.table-wrap { overflow-x: auto; margin-top: 2rem; }
+.table-wrap { overflow-x: auto; margin-top: 2rem; border-radius: var(--radius); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th {
   text-align: left; padding: 13px 16px;
@@ -611,8 +1161,8 @@ th {
 }
 th:first-child { border-radius: 10px 0 0 10px; }
 th:last-child  { border-radius: 0 10px 10px 0; }
-td { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); }
-tr:hover td { background: rgba(255,255,255,0.02); }
+td { padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.04); transition: background 0.15s; }
+tr:hover td { background: rgba(201,168,76,0.03); }
 .note { font-weight: 700; color: var(--white); }
 .rank-1 { color: var(--gold); font-weight: 700; }
 .rank-2 { color: #B8C0CC; }
@@ -623,30 +1173,32 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .mention-ab { background: rgba(46,180,100,0.12); color: #4CC070; }
 .mention-p  { background: rgba(255,255,255,0.06); color: var(--muted); }
 
-/* Saisie form */
 .saisie-wrap { max-width: 620px; margin-top: 2rem; position: relative; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .form-group { margin-bottom: 1.2rem; }
-.form-group label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 7px; font-weight: 500; }
+.form-group label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 7px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
 .form-group input, .form-group select, .form-group textarea {
   width: 100%; background: var(--navy3);
   border: 1px solid rgba(255,255,255,0.09);
   border-radius: 9px; padding: 12px 14px;
   color: var(--white); font-size: 14px;
   font-family: 'Outfit', sans-serif; outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
   border-color: rgba(201,168,76,0.45);
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.08);
 }
 .form-group textarea { resize: vertical; min-height: 110px; }
 .btn-submit {
-  background: var(--gold); color: var(--navy);
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  color: var(--navy);
   padding: 14px 32px; border-radius: 10px; border: none;
   font-weight: 700; font-size: 14.5px; cursor: pointer;
   font-family: 'Outfit', sans-serif; transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(160,120,48,0.25);
 }
-.btn-submit:hover { background: var(--gold-lt); transform: translateY(-1px); }
+.btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(201,168,76,0.35); filter: brightness(1.08); }
 .success-msg {
   display: none; background: rgba(46,180,100,0.1);
   border: 1px solid rgba(46,180,100,0.3);
@@ -658,6 +1210,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
    GALERIE
 ═══════════════════════════════════════════ */
 .galerie { background: var(--navy2); }
+.galerie > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
 .galerie-filters { display: flex; gap: 0.65rem; margin-top: 2.5rem; flex-wrap: wrap; }
 .filter-btn {
   padding: 8px 18px; border-radius: 50px;
@@ -677,29 +1230,95 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   border-radius: 14px; overflow: hidden; aspect-ratio: 4/3;
   background: var(--navy3); border: 1px solid rgba(255,255,255,0.06);
   display: flex; align-items: center; justify-content: center;
-  position: relative; cursor: pointer; transition: all 0.25s;
+  position: relative; cursor: pointer; transition: all 0.3s;
 }
-.photo-card:hover { transform: scale(1.02); border-color: var(--border); }
+.photo-card:hover { transform: scale(1.03); border-color: var(--border); box-shadow: 0 12px 30px rgba(0,0,0,0.3); }
 .photo-overlay {
   position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(6,8,15,0.85), transparent);
-  opacity: 0; transition: opacity 0.25s;
+  background: linear-gradient(to top, rgba(6,8,15,0.9), transparent 60%);
+  opacity: 0; transition: opacity 0.3s;
   display: flex; align-items: flex-end; padding: 1rem;
 }
 .photo-card:hover .photo-overlay { opacity: 1; }
-.photo-overlay span { font-size: 12.5px; color: var(--white); }
+.photo-overlay span { font-size: 12.5px; color: var(--white); font-weight: 500; }
 .upload-zone {
   grid-column: 1/-1;
   border: 2px dashed rgba(201,168,76,0.2);
   border-radius: 14px; padding: 2.5rem;
   text-align: center; cursor: pointer; transition: all 0.2s;
 }
-.upload-zone:hover { border-color: rgba(201,168,76,0.55); background: rgba(201,168,76,0.03); }
+.upload-zone:hover { border-color: rgba(201,168,76,0.55); background: rgba(201,168,76,0.02); }
 .upload-zone p { color: var(--muted); font-size: 14px; margin-top: 0.5rem; }
 .upload-zone strong { color: var(--gold); }
 #fileInput { display: none; }
 .upload-progress { display: none; height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; margin-top: 0.75rem; overflow: hidden; }
 .upload-progress-bar { height: 100%; background: var(--gold); border-radius: 2px; width: 0%; transition: width 0.3s; }
+
+/* ═══════════════════════════════════════════
+   LIGHTBOX
+═══════════════════════════════════════════ */
+#lightbox {
+  display: none; position: fixed; inset: 0; z-index: 4000;
+  background: rgba(3,4,10,0.97); align-items: center; justify-content: center;
+  backdrop-filter: blur(12px);
+}
+#lightbox.open { display: flex; }
+.lightbox-img {
+  max-width: 90vw; max-height: 85vh;
+  border-radius: 12px; object-fit: contain;
+  box-shadow: 0 20px 80px rgba(0,0,0,0.6);
+  animation: lightboxIn 0.3s ease;
+}
+@keyframes lightboxIn { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.lightbox-close {
+  position: absolute; top: 1.5rem; right: 1.5rem;
+  background: rgba(255,255,255,0.1); border: none; color: var(--white);
+  width: 44px; height: 44px; border-radius: 50%; font-size: 1.2rem;
+  cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center;
+}
+.lightbox-close:hover { background: rgba(255,255,255,0.2); }
+.lightbox-caption {
+  position: absolute; bottom: 2rem;
+  font-size: 14px; color: rgba(255,255,255,0.7);
+  background: rgba(0,0,0,0.5); padding: 6px 16px; border-radius: 50px;
+}
+
+/* ═══════════════════════════════════════════
+   TÉMOIGNAGES (NOUVELLE SECTION)
+═══════════════════════════════════════════ */
+.temoignages {
+  background: var(--navy3);
+  text-align: center;
+}
+.temoignages > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
+.temoignages-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem; margin-top: 3.5rem; text-align: left;
+}
+.temoignage-card {
+  background: var(--navy2);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 18px; padding: 2rem;
+  transition: all 0.3s; position: relative;
+}
+.temoignage-card::before {
+  content: '"'; position: absolute; top: 1rem; left: 1.5rem;
+  font-family: 'Cormorant Garamond', serif; font-size: 4rem;
+  color: var(--gold); opacity: 0.2; line-height: 1;
+}
+.temoignage-card:hover { transform: translateY(-5px); border-color: var(--border); box-shadow: 0 16px 40px rgba(0,0,0,0.3); }
+.temoignage-stars { color: var(--gold); font-size: 13px; margin-bottom: 1rem; letter-spacing: 2px; }
+.temoignage-text { font-size: 14.5px; color: var(--cream2); line-height: 1.75; font-style: italic; margin-bottom: 1.5rem; padding-top: 1rem; }
+.temoignage-author { display: flex; align-items: center; gap: 0.75rem; }
+.temoignage-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif; font-weight: 700; font-size: 16px;
+  color: var(--navy); flex-shrink: 0;
+}
+.temoignage-name { font-weight: 600; font-size: 14px; }
+.temoignage-role { font-size: 12px; color: var(--muted); }
 
 /* ═══════════════════════════════════════════
    CTA REJOINDRE
@@ -710,8 +1329,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 .rejoindre::before {
   content: ''; position: absolute; inset: 0;
-  background-image: repeating-linear-gradient(45deg, rgba(201,168,76,0.03) 0, rgba(201,168,76,0.03) 1px, transparent 0, transparent 30px),
-                    repeating-linear-gradient(-45deg, rgba(201,168,76,0.03) 0, rgba(201,168,76,0.03) 1px, transparent 0, transparent 30px);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(201,168,76,0.03) 0, rgba(201,168,76,0.03) 1px, transparent 0, transparent 30px),
+    repeating-linear-gradient(-45deg, rgba(201,168,76,0.03) 0, rgba(201,168,76,0.03) 1px, transparent 0, transparent 30px);
 }
 .rejoindre-inner { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
 .rejoindre .section-title { font-size: clamp(2.4rem, 4vw, 3.5rem); margin-bottom: 1.2rem; }
@@ -721,7 +1341,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   flex: 1; background: rgba(255,255,255,0.03);
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 14px; padding: 1.8rem; text-align: left;
+  transition: all 0.25s;
 }
+.rejoindre-card:hover { background: rgba(201,168,76,0.05); border-color: var(--border); transform: translateY(-4px); }
 .rejoindre-card .rc-icon { font-size: 1.8rem; margin-bottom: 1rem; }
 .rejoindre-card .rc-title { font-weight: 600; font-size: 1rem; margin-bottom: 0.5rem; }
 .rejoindre-card .rc-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
@@ -730,15 +1352,19 @@ tr:hover td { background: rgba(255,255,255,0.02); }
    CONTACT
 ═══════════════════════════════════════════ */
 .contact { background: var(--navy); }
-.contact-grid { display: grid; grid-template-columns: 1fr 1.2fr; gap: 5rem; margin-top: 3rem; }
-.info-item { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 2rem; }
+.contact > * { max-width: 1200px; margin-left: auto; margin-right: auto; }
+.contact-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 5rem; margin-top: 3rem; }
+.info-item { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.8rem; }
 .info-icon {
-  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
   background: rgba(201,168,76,0.1);
+  border: 1px solid rgba(201,168,76,0.15);
   display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+  transition: background 0.2s;
 }
-.info-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; }
-.info-value { font-weight: 500; font-size: 14.5px; line-height: 1.5; }
+.info-item:hover .info-icon { background: rgba(201,168,76,0.18); }
+.info-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+.info-value { font-weight: 500; font-size: 14.5px; line-height: 1.6; }
 
 /* ═══════════════════════════════════════════
    FOOTER
@@ -746,43 +1372,111 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 footer {
   background: #03040A;
   border-top: 1px solid rgba(201,168,76,0.12);
-  padding: 3.5rem; text-align: center;
+  padding: 4rem 3.5rem 2.5rem;
 }
+.footer-inner { max-width: 1200px; margin: 0 auto; text-align: center; }
 .footer-emblem {
-  width: 52px; height: 52px; border-radius: 12px;
+  width: 58px; height: 58px; border-radius: 14px;
   background: linear-gradient(135deg, var(--gold-dk), var(--gold));
   display: flex; align-items: center; justify-content: center;
   font-family: 'Cormorant Garamond', serif;
-  font-weight: 700; font-size: 18px; color: var(--navy);
+  font-weight: 700; font-size: 20px; color: var(--navy);
   margin: 0 auto 1rem;
+  box-shadow: 0 4px 20px rgba(160,120,48,0.3);
 }
 .footer-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 1.3rem; font-weight: 700; color: var(--gold); margin-bottom: 0.4rem;
+  font-size: 1.4rem; font-weight: 700; color: var(--gold); margin-bottom: 0.4rem;
 }
-footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+footer > .footer-inner > p { color: var(--muted); font-size: 13.5px; line-height: 1.7; margin-bottom: 1.8rem; }
+.footer-socials {
+  display: flex; gap: 0.75rem; justify-content: center; margin-bottom: 2rem;
+}
+.social-btn {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none; font-size: 1rem; transition: all 0.2s;
+  color: var(--muted);
+}
+.social-btn:hover { background: rgba(201,168,76,0.12); border-color: var(--border); color: var(--gold); transform: translateY(-2px); }
 .footer-links {
   display: flex; gap: 2rem; justify-content: center;
-  margin: 1.8rem 0; list-style: none; flex-wrap: wrap;
+  margin: 0 0 2rem; list-style: none; flex-wrap: wrap;
 }
 .footer-links a { color: var(--muted); text-decoration: none; font-size: 13px; transition: color 0.2s; }
 .footer-links a:hover { color: var(--gold); }
-.copyright { font-size: 11.5px; color: rgba(138,144,168,0.45); margin-top: 2rem; }
+.footer-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 0 0 1.5rem; }
+.copyright { font-size: 11.5px; color: rgba(138,144,168,0.45); }
 
 /* ═══════════════════════════════════════════
-   LOCK OVERLAY
+   FLOATING BUTTONS
+═══════════════════════════════════════════ */
+.fab-group {
+  position: fixed; bottom: 2rem; right: 2rem; z-index: 500;
+  display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-end;
+}
+.fab {
+  width: 50px; height: 50px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; text-decoration: none;
+  font-size: 1.3rem; transition: all 0.25s;
+  border: none; font-family: inherit;
+}
+.fab-whatsapp {
+  background: #25D366; color: white;
+  box-shadow: 0 4px 20px rgba(37,211,102,0.35);
+}
+.fab-whatsapp:hover { transform: scale(1.1); box-shadow: 0 6px 28px rgba(37,211,102,0.5); }
+.fab-top {
+  background: var(--navy3); color: var(--gold);
+  border: 1px solid var(--border);
+  opacity: 0; transform: translateY(10px);
+  pointer-events: none; transition: all 0.3s;
+}
+.fab-top.visible { opacity: 1; transform: translateY(0); pointer-events: all; }
+.fab-top:hover { background: var(--navy4); transform: translateY(-2px); }
+
+/* ═══════════════════════════════════════════
+   TOAST NOTIFICATIONS
+═══════════════════════════════════════════ */
+#toastContainer {
+  position: fixed; top: 120px; right: 1.5rem; z-index: 5000;
+  display: flex; flex-direction: column; gap: 0.65rem;
+  pointer-events: none;
+}
+.toast {
+  background: var(--navy2);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-left: 4px solid var(--gold);
+  border-radius: 10px; padding: 0.9rem 1.2rem;
+  font-size: 13.5px; color: var(--white);
+  max-width: 320px; pointer-events: all;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  display: flex; align-items: center; gap: 0.7rem;
+  animation: toastIn 0.35s ease;
+  transition: opacity 0.35s, transform 0.35s;
+}
+.toast.toast-success { border-left-color: var(--success); }
+.toast.toast-error   { border-left-color: var(--error); }
+.toast.toast-info    { border-left-color: #5BBCDD; }
+.toast.removing { opacity: 0; transform: translateX(20px); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+/* ═══════════════════════════════════════════
+   PROTECTED ZONE / LOCK
 ═══════════════════════════════════════════ */
 .protected-zone { position: relative; }
 .lock-overlay {
   position: absolute; inset: 0; z-index: 10;
-  background: rgba(6,8,15,0.78);
+  background: rgba(6,8,15,0.82);
   border-radius: 12px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 0.6rem; backdrop-filter: blur(4px);
+  gap: 0.6rem; backdrop-filter: blur(6px);
   cursor: pointer; transition: background 0.2s;
 }
-.lock-overlay:hover { background: rgba(6,8,15,0.68); }
+.lock-overlay:hover { background: rgba(6,8,15,0.72); }
 .lock-overlay .lock-icon  { font-size: 2.2rem; }
 .lock-overlay .lock-text  { color: var(--gold); font-weight: 600; font-size: 15px; }
 .lock-overlay .lock-sub   { color: var(--muted); font-size: 12px; }
@@ -805,68 +1499,86 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 ═══════════════════════════════════════════ */
 .modal-overlay {
   display: none; position: fixed; inset: 0; z-index: 2000;
-  background: rgba(3,4,10,0.92); align-items: center; justify-content: center;
+  background: rgba(3,4,10,0.94); align-items: center; justify-content: center;
+  backdrop-filter: blur(8px);
 }
 .modal-overlay.open { display: flex; }
 .modal {
   background: var(--navy2); border: 1px solid var(--border);
-  border-radius: 18px; padding: 2.2rem 2.6rem;
-  max-width: 520px; width: 90%; position: relative;
+  border-radius: 20px; padding: 2.4rem 2.8rem;
+  max-width: 540px; width: 90%; position: relative;
+  animation: modalIn 0.3s ease;
 }
+@keyframes modalIn { from { transform: scale(0.95) translateY(12px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
 .modal h3 {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 1.6rem; margin-bottom: 1rem; color: var(--gold);
+  font-size: 1.7rem; margin-bottom: 1rem; color: var(--gold);
 }
 .modal p { color: var(--muted); font-size: 14px; line-height: 1.75; }
 .modal-close {
   position: absolute; top: 1rem; right: 1rem;
-  background: none; border: none; color: var(--muted);
-  font-size: 1.4rem; cursor: pointer; padding: 4px 8px;
+  background: rgba(255,255,255,0.06); border: none; color: var(--muted);
+  font-size: 1.2rem; cursor: pointer; padding: 0;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s;
 }
+.modal-close:hover { background: rgba(255,255,255,0.12); color: var(--white); }
+
 .auth-overlay {
   display: none; position: fixed; inset: 0; z-index: 3000;
   background: rgba(3,4,10,0.97); align-items: center; justify-content: center;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(12px);
 }
 .auth-overlay.open { display: flex; }
 .auth-box {
   background: var(--navy2); border: 1px solid var(--border);
-  border-radius: 22px; padding: 2.8rem;
-  width: 90%; max-width: 400px; text-align: center; position: relative;
+  border-radius: 24px; padding: 3rem;
+  width: 90%; max-width: 420px; text-align: center; position: relative;
+  animation: modalIn 0.3s ease;
 }
 .auth-box-close {
   position: absolute; top: 1rem; right: 1rem;
-  background: none; border: none; color: var(--muted);
-  font-size: 1.4rem; cursor: pointer; padding: 4px 8px;
+  background: rgba(255,255,255,0.06); border: none; color: var(--muted);
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; cursor: pointer; transition: background 0.2s;
 }
+.auth-box-close:hover { background: rgba(255,255,255,0.12); color: var(--white); }
 .auth-emblem {
-  width: 62px; height: 62px; border-radius: 16px;
+  width: 68px; height: 68px; border-radius: 18px;
   background: linear-gradient(135deg, var(--gold-dk), var(--gold));
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.6rem; margin: 0 auto 1.3rem;
+  font-size: 1.7rem; margin: 0 auto 1.3rem;
 }
 .auth-box h3 {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 1.6rem; color: var(--gold); margin-bottom: 0.4rem;
+  font-size: 1.7rem; color: var(--gold); margin-bottom: 0.4rem;
 }
-.auth-box p { color: var(--muted); font-size: 13px; margin-bottom: 1.8rem; }
+.auth-box > p { color: var(--muted); font-size: 13.5px; margin-bottom: 1.8rem; }
 .auth-input, .auth-input-email {
   width: 100%; background: var(--navy3);
   border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 11px; padding: 14px 16px;
+  border-radius: 12px; padding: 14px 16px;
   color: var(--white); font-size: 15px;
   font-family: 'Outfit', sans-serif; outline: none;
-  margin-bottom: 1rem; transition: border-color 0.2s;
+  margin-bottom: 1rem; transition: border-color 0.2s, box-shadow 0.2s;
 }
-.auth-input:focus, .auth-input-email:focus { border-color: rgba(201,168,76,0.5); }
+.auth-input:focus, .auth-input-email:focus {
+  border-color: rgba(201,168,76,0.5);
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.08);
+}
 .auth-input { text-align: center; letter-spacing: 0.15em; }
 .auth-btn {
-  width: 100%; background: var(--gold); color: var(--navy);
-  padding: 14px; border-radius: 11px; border: none;
+  width: 100%;
+  background: linear-gradient(135deg, var(--gold-dk), var(--gold));
+  color: var(--navy);
+  padding: 14px; border-radius: 12px; border: none;
   font-weight: 700; font-size: 15px; cursor: pointer;
-  font-family: 'Outfit', sans-serif; transition: opacity 0.2s;
+  font-family: 'Outfit', sans-serif; transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(160,120,48,0.3);
 }
-.auth-btn:hover { opacity: 0.88; }
+.auth-btn:hover { filter: brightness(1.1); box-shadow: 0 6px 22px rgba(160,120,48,0.4); }
 .auth-error {
   display: none; background: rgba(220,50,50,0.1);
   border: 1px solid rgba(220,50,50,0.25);
@@ -881,59 +1593,264 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 .annonce-form-overlay.open { display: flex; }
 .annonce-form-box {
   background: var(--navy2); border: 1px solid var(--border);
-  border-radius: 18px; padding: 2.2rem 2.6rem;
-  width: 90%; max-width: 500px; position: relative;
+  border-radius: 22px; padding: 2.8rem;
+  width: 90%; max-width: 480px; position: relative;
+  animation: modalIn 0.3s ease;
 }
 .annonce-form-box h3 {
   font-family: 'Cormorant Garamond', serif;
-  color: var(--gold); font-size: 1.4rem; margin-bottom: 1.4rem;
+  font-size: 1.6rem; color: var(--gold); margin-bottom: 1.5rem;
 }
-
-/* ═══════════════════════════════════════════
-   FIREBASE LOADING
-═══════════════════════════════════════════ */
-.fb-loading {
-  display: flex; align-items: center; gap: 0.7rem;
-  color: var(--muted); font-size: 13px; padding: 1rem 0;
-}
-.fb-spinner {
-  width: 16px; height: 16px; border-radius: 50%;
-  border: 2px solid rgba(201,168,76,0.2);
-  border-top-color: var(--gold);
-  animation: spin 0.7s linear infinite; flex-shrink: 0;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ═══════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════ */
-@media (max-width: 900px) {
-  nav { padding: 0 1.5rem; }
-  .nav-center { display: none; }
-  section { padding: 70px 1.5rem; }
-  .hero { padding: 110px 1.5rem 60px; }
-  .hero-stats { flex-wrap: wrap; gap: 0; }
-  .stat-item { width: 50%; border: none !important; padding: 1rem !important; }
+/* ═══════════════════════════════════════════
+   RESPONSIVE — TABLETTE (≤1024px)
+═══════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  section { padding: 5rem 2.5rem; }
   .apropos-inner { grid-template-columns: 1fr; gap: 3rem; }
   .apropos-images { display: none; }
-  .cycles-grid { grid-template-columns: 1fr; }
-  .pourquoi-grid { grid-template-columns: 1fr; }
+  .cycles-grid { grid-template-columns: 1fr 1fr; gap: 1rem; }
   .curriculum-grid { grid-template-columns: repeat(2,1fr); }
+  .temoignages-grid { grid-template-columns: 1fr; }
   .contact-grid { grid-template-columns: 1fr; gap: 2.5rem; }
   .rejoindre-cards { flex-direction: column; }
   .curriculum-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .pourquoi-grid { grid-template-columns: 1fr 1fr; }
 }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤768px)
+═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* ── Base ── */
+  section { padding: 3.5rem 1.2rem; }
+  .section-title { font-size: clamp(1.6rem, 6vw, 2.2rem) !important; }
+  .section-desc { font-size: 14px !important; }
+
+  /* ── Navigation ── */
+  nav { padding: 0 1.2rem; height: 60px; top: 0; }
+  nav.ticker-hidden { top: 0; }
+  .nav-center, .nav-cta { display: none; }
+  .hamburger { display: flex; }
+  .mobile-nav { display: flex; top: 60px; }
+  .nav-logo-text .school-name { font-size: 13px; }
+  .nav-logo-text .school-sub { display: none; }
+  #tickerBar { display: none; }
+
+  /* ── Hero ── */
+  .hero { padding: 100px 1.2rem 50px; min-height: auto; }
+  .hero-content { max-width: 100%; }
+  .hero h1 { font-size: clamp(2.2rem, 8vw, 3rem); margin-bottom: 1.2rem; }
+  .hero-desc { font-size: 15px; line-height: 1.7; margin-bottom: 1.8rem; max-width: 100%; }
+  .hero-eyebrow { font-size: 10px; padding: 5px 12px; margin-bottom: 1.4rem; }
+  .location-badge { font-size: 11px; padding: 4px 12px; }
+  .hero-actions { flex-direction: column; gap: 0.75rem; }
+  .btn-primary, .btn-outline { text-align: center; padding: 14px 24px; font-size: 14px; width: 100%; }
+  .hero-stats {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 1.2rem; margin-top: 3rem; padding-top: 2rem;
+  }
+  .stat-item { padding: 0; border-right: none; border-bottom: 1px solid rgba(201,168,76,0.1); padding-bottom: 1rem; }
+  .stat-item:nth-child(3), .stat-item:nth-child(4) { border-bottom: none; }
+  .stat-num { font-size: 2.2rem; }
+  .stat-label { font-size: 11px; }
+
+  /* ── Présentation ── */
+  .apropos-inner { gap: 2rem; }
+  .apropos-features { gap: 1rem; }
+  .apropos-feature { padding: 0.9rem 1rem; }
+  .feature-title { font-size: 13.5px; }
+  .feature-desc { font-size: 12px; }
+
+  /* ── Cycles ── */
+  .cycles-grid { grid-template-columns: 1fr; gap: 0.9rem; }
+  .cycle-card { padding: 1.8rem 1.5rem; }
+  .cycle-title { font-size: 1.3rem; }
+
+  /* ── Pourquoi ── */
+  .pourquoi-grid { grid-template-columns: 1fr; gap: 1.2rem; }
+
+  /* ── Curriculum ── */
+  .curriculum-grid { grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+  .curriculum-card { padding: 1.2rem; }
+  .curriculum-emoji { font-size: 1.5rem; margin-bottom: 0.6rem; }
+  .curriculum-name { font-size: 13px; }
+  .curriculum-sub { font-size: 11.5px; }
+
+  /* ── Annonces ── */
+  .annonces-grid { grid-template-columns: 1fr; gap: 1rem; }
+
+  /* ── Résultats / Tabs ── */
+  .tabs { gap: 0; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .tab-btn { white-space: nowrap; padding: 0.9rem 1rem; font-size: 12.5px; flex-shrink: 0; }
+  .table-wrap { border-radius: 10px; }
+  .table-wrap table { font-size: 12px; min-width: 580px; }
+  .table-wrap th, .table-wrap td { padding: 0.7rem 0.6rem; }
+  .saisie-wrap { max-width: 100%; }
+  .form-row { grid-template-columns: 1fr; }
+  .protected-zone { min-height: 200px; }
+  .lock-overlay { min-height: 200px !important; }
+
+  /* ── Galerie ── */
+  .galerie-filters { gap: 0.5rem; }
+  .filter-btn { padding: 7px 12px; font-size: 11.5px; }
+  .galerie-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.6rem; }
+  .photo-card { aspect-ratio: 1; }
+  .upload-zone { padding: 1.5rem 1rem; font-size: 13px; }
+
+  /* ── Témoignages ── */
+  .temoignages-grid { grid-template-columns: 1fr; gap: 1rem; }
+  .temoignage-card { padding: 1.5rem; }
+  .temoignage-text { font-size: 13.5px; }
+
+  /* ── Rejoindre ── */
+  .rejoindre-cards { flex-direction: column; gap: 1rem; }
+  .rejoindre-card { padding: 1.5rem; }
+  .rc-icon { font-size: 1.8rem; }
+
+  /* ── Contact ── */
+  .contact-grid { grid-template-columns: 1fr; gap: 2rem; }
+  .info-item { gap: 0.8rem; }
+  .info-icon { font-size: 1.1rem; }
+  .info-label { font-size: 10px; }
+  .info-value { font-size: 14px; }
+
+  /* ── Footer ── */
+  footer { padding: 3rem 1.2rem 2rem; }
+  .footer-links { flex-wrap: wrap; justify-content: center; gap: 0.6rem 1.2rem; }
+  .footer-links a { font-size: 12.5px; }
+
+  /* ── FAB buttons ── */
+  .fab-group { bottom: 1.2rem; right: 1rem; }
+  .fab-whatsapp { bottom: 5rem; right: 1rem; width: 46px; height: 46px; font-size: 1.3rem; }
+
+  /* ── Logo upload trigger ── */
+  #logoUploadTrigger {
+    bottom: 1.2rem; left: 1rem;
+    font-size: 11px; padding: 9px 13px; gap: 5px;
+  }
+
+  /* ── Logo modal ── */
+  .logo-modal-box { padding: 1.8rem 1.4rem; border-radius: 20px; }
+  .logo-modal-title { font-size: 1.35rem; }
+  .logo-modal-sub { font-size: 12px; margin-bottom: 1.4rem; }
+  .logo-drop-zone { padding: 2rem 1rem; }
+  .logo-drop-icon { font-size: 2rem; }
+  .logo-drop-text { font-size: 13px; }
+  .logo-previews { gap: 1rem; justify-content: center; }
+  .logo-btn-apply { font-size: 13px; padding: 11px; }
+  .logo-btn-reset { font-size: 12px; padding: 11px 14px; }
+
+  /* ── Auth modal ── */
+  .auth-box { padding: 2rem 1.4rem; border-radius: 20px; }
+
+  /* ── Annonce form overlay ── */
+  #annonceFormOverlay .modal, .modal { width: 94vw; padding: 1.8rem 1.4rem; }
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE — PETIT MOBILE (≤480px)
+═══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  section { padding: 3rem 1rem; }
+
+  .hero { padding: 90px 1rem 40px; }
+  .hero h1 { font-size: clamp(1.9rem, 8.5vw, 2.4rem); }
+  .hero-eyebrow { font-size: 9.5px; letter-spacing: 0.08em; }
+
+  .hero-stats { grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .stat-num { font-size: 1.9rem; }
+
+  .curriculum-grid { grid-template-columns: 1fr; }
+  .cycles-grid { grid-template-columns: 1fr; }
+  .pourquoi-grid { grid-template-columns: 1fr; }
+
+  .galerie-grid { grid-template-columns: repeat(2,1fr) !important; gap: 0.5rem; }
+
+  .btn-primary, .btn-outline { padding: 13px 20px; font-size: 13.5px; }
+
+  .tabs { border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .tab-btn { padding: 0.8rem 0.85rem; font-size: 12px; }
+
+  .footer-links { gap: 0.5rem 1rem; }
+
+  /* Logo modal full-width on tiny screens */
+  .logo-modal-box { padding: 1.5rem 1.1rem; }
+  .logo-previews { gap: 0.8rem; }
+
+  /* FABs tighter */
+  .fab-whatsapp { bottom: 4.5rem; right: 0.8rem; width: 44px; height: 44px; }
+  #logoUploadTrigger { left: 0.8rem; bottom: 1rem; font-size: 10.5px; padding: 8px 11px; }
+}
+
+/* ═══════════════════════════════════════════
+   TOUCH IMPROVEMENTS (tous mobiles)
+═══════════════════════════════════════════ */
+@media (hover: none) {
+  /* Tap feedback au lieu de hover */
+  .cycle-card:active, .annonce-card:active, .curriculum-card:active,
+  .pourquoi-card:active, .temoignage-card:active {
+    transform: scale(0.98);
+    transition: transform 0.15s;
+  }
+  .btn-primary:active { transform: scale(0.97); filter: brightness(0.95); }
+  .btn-outline:active { transform: scale(0.97); }
+  .filter-btn:active { transform: scale(0.95); }
+  /* Remove hover transforms on touch */
+  .cycle-card:hover, .annonce-card:hover, .curriculum-card:hover { transform: none; }
+}
+
+/* ═══════════════════════════════════════════
+   SCROLL HORIZONTAL FLUIDE (résultats)
+═══════════════════════════════════════════ */
+.tabs { -ms-overflow-style: none; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+
 </style>
 </head>
 <body>
 
+<!-- ══════════ PRELOADER ══════════ -->
+<div id="preloader">
+  <div class="preloader-emblem" id="preloaderEmblem">ASD</div>
+  <div class="preloader-bar-wrap">
+    <div class="preloader-bar"></div>
+  </div>
+  <div class="preloader-text">Groupe Scolaire Aline Sitoé Diatta</div>
+</div>
+
+<!-- ══════════ SCROLL PROGRESS ══════════ -->
+<div id="scrollProgress"></div>
+
+<!-- ══════════ TICKER BAR ══════════ -->
+<div id="tickerBar">
+  <div class="ticker-label">📢 Infos</div>
+  <div class="ticker-track">
+    <div class="ticker-inner" id="tickerInner">
+      <span class="ticker-item">Inscriptions ouvertes pour l'année 2025–2026</span>
+      <span class="ticker-item">Taux de réussite au BAC : 98% · Félicitations à tous nos lauréats !</span>
+      <span class="ticker-item">Journée portes ouvertes · Samedi prochain de 9h à 13h</span>
+      <span class="ticker-item">Résultats du 3ème trimestre disponibles en ligne</span>
+      <span class="ticker-item">Groupe Scolaire Aline Sitoé Diatta · Keur Massar · Cité Gendarmerie · Dakar</span>
+      <span class="ticker-item">Inscriptions ouvertes pour l'année 2025–2026</span>
+      <span class="ticker-item">Taux de réussite au BAC : 98% · Félicitations à tous nos lauréats !</span>
+      <span class="ticker-item">Journée portes ouvertes · Samedi prochain de 9h à 13h</span>
+      <span class="ticker-item">Résultats du 3ème trimestre disponibles en ligne</span>
+      <span class="ticker-item">Groupe Scolaire Aline Sitoé Diatta · Keur Massar · Cité Gendarmerie · Dakar</span>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════ NAV ══════════ -->
 <nav id="mainNav">
   <a href="#accueil" class="nav-logo">
-    <div class="nav-logo-emblem">ASD</div>
+    <div class="nav-logo-emblem" id="navLogoEmblem">ASD</div>
     <div class="nav-logo-text">
-      <span class="school-name">Groupe Scolaire</span>
-      <span class="school-sub">Aline Sitoé Diatta</span>
+      <span class="school-name">Groupe Scolaire Aline Sitoé Diatta</span>
+      <span class="school-sub">High School · Dakar</span>
     </div>
   </a>
   <ul class="nav-center">
@@ -949,43 +1866,62 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
       🔐 <span id="adminEmail"></span> <span style="opacity:0.5;font-weight:400;">· Déco.</span>
     </div>
     <a href="#contact" class="nav-cta">Nous contacter</a>
+    <button class="hamburger" id="hamburger" onclick="toggleMobileMenu()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
+</nav>
+
+<!-- Mobile navigation -->
+<nav class="mobile-nav" id="mobileNav">
+  <a href="#presentation" onclick="closeMobileMenu()">🏫 Présentation</a>
+  <a href="#cycles" onclick="closeMobileMenu()">📚 Pédagogies</a>
+  <a href="#annonces" onclick="closeMobileMenu()">📢 Annonces</a>
+  <a href="#resultats" onclick="closeMobileMenu()">📊 Résultats</a>
+  <a href="#galerie" onclick="closeMobileMenu()">🖼️ Galerie</a>
+  <a href="#contact" onclick="closeMobileMenu()" class="mobile-cta">✉️ Contact & Inscription</a>
 </nav>
 
 <!-- ══════════ HERO ══════════ -->
 <section class="hero" id="accueil">
-  <div class="hero-pattern"></div>
+  <div class="hero-bg-pattern"></div>
   <div class="hero-orb hero-orb-1"></div>
   <div class="hero-orb hero-orb-2"></div>
+  <div class="hero-orb hero-orb-3"></div>
+  <div class="hero-particles" id="heroParticles"></div>
   <div class="hero-content">
-    <div class="hero-eyebrow">✦ Ziguinchor · Casamance · Sénégal</div>
+    <div class="hero-eyebrow">
+      <div class="eyebrow-dot"></div>
+      Keur Massar · Cité Gendarmerie · Dakar · Sénégal
+    </div>
     <h1>
       Offrir l'excellence<br>
       <span class="accent">aux élèves de demain</span>
     </h1>
     <p class="hero-desc">
-      Depuis notre fondation, le Groupe Scolaire Aline Sitoé Diatta forme chaque génération avec rigueur, bienveillance et ambition. Un établissement de référence au cœur de la Casamance.
+      Depuis notre fondation, le Groupe Scolaire Aline Sitoé Diatta High School forme chaque génération avec rigueur, bienveillance et ambition. Un établissement de référence à Keur Massar, Cité Gendarmerie, Dakar.
     </p>
+    <div style="margin-bottom:1.5rem;"><span class="location-badge">📍 Cité Gendarmerie · Keur Massar · Dakar</span></div>
     <div class="hero-actions">
       <a href="#presentation" class="btn-primary">Découvrir l'école</a>
       <a href="#resultats" class="btn-outline">Voir les résultats</a>
     </div>
     <div class="hero-stats">
       <div class="stat-item">
-        <div class="stat-num">98%</div>
+        <div class="stat-num" data-count="98" data-suffix="%">0%</div>
         <div class="stat-label">Taux de réussite aux examens nationaux</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num">500+</div>
+        <div class="stat-num" data-count="500" data-suffix="+">0+</div>
         <div class="stat-label">Élèves inscrits chaque année</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num">30+</div>
+        <div class="stat-num" data-count="30" data-suffix="+">0+</div>
         <div class="stat-label">Enseignants qualifiés et dévoués</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num">15 ans</div>
-        <div class="stat-label">D'excellence éducative en Casamance</div>
+        <div class="stat-num" data-count="15" data-suffix=" ans">0 ans</div>
+        <div class="stat-label">D'excellence éducative à Dakar</div>
       </div>
     </div>
   </div>
@@ -994,32 +1930,32 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 <!-- ══════════ PRÉSENTATION ══════════ -->
 <section class="apropos" id="presentation">
   <div class="apropos-inner">
-    <div class="apropos-text">
+    <div class="apropos-text reveal-left">
       <div class="section-label">À propos de nous</div>
       <div class="gold-bar"></div>
       <h2 class="section-title">Engagé envers l'excellence en éducation</h2>
       <p class="section-desc">
-        Fondé au cœur de Ziguinchor, le Groupe Scolaire Aline Sitoé Diatta est un établissement privé laïc qui accueille les élèves du préscolaire jusqu'au lycée. Notre mission : révéler le potentiel de chaque enfant grâce à une pédagogie rigoureuse et humaine.
+        Fondé au cœur de Keur Massar, le <strong style="color:var(--white)">Groupe Scolaire Aline Sitoé Diatta High School</strong> est un établissement privé laïc qui accueille les élèves du préscolaire jusqu'au lycée. Notre mission : révéler le potentiel de chaque enfant grâce à une pédagogie rigoureuse et humaine.
       </p>
       <p class="section-desc" style="margin-top:1rem;">
         Nos élèves sont préparés aux grands examens nationaux — CFEE, entrée en 6ème, BFEM, BAC — avec un encadrement attentif et des méthodes pédagogiques modernes.
       </p>
       <div class="apropos-features">
-        <div class="apropos-feature">
+        <div class="apropos-feature reveal-item delay-1">
           <div class="feature-icon">🎓</div>
           <div>
             <div class="feature-title">Préparation aux examens nationaux</div>
             <div class="feature-desc">CFEE, entrée en 6ème, BFEM et BAC avec un taux de réussite exceptionnel</div>
           </div>
         </div>
-        <div class="apropos-feature">
+        <div class="apropos-feature reveal-item delay-2">
           <div class="feature-icon">🌍</div>
           <div>
             <div class="feature-title">Langues étrangères dès le préscolaire</div>
             <div class="feature-desc">Anglais, arabe et informatique enseignés à tous les niveaux</div>
           </div>
         </div>
-        <div class="apropos-feature">
+        <div class="apropos-feature reveal-item delay-3">
           <div class="feature-icon">🤝</div>
           <div>
             <div class="feature-title">Accompagnement personnalisé</div>
@@ -1028,11 +1964,11 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
         </div>
       </div>
     </div>
-    <div class="apropos-images">
+    <div class="apropos-images reveal-right">
       <div class="img-placeholder tall">
         <div class="img-icon">📸</div>
         <span style="font-size:12px;color:var(--muted);text-align:center;">Photo principale<br>de l'école</span>
-        <div class="img-label">Bâtiment principal — ASD</div>
+        <div class="img-label">Bâtiment principal — ASD High School</div>
       </div>
       <div class="img-placeholder">
         <div class="img-icon">🏫</div>
@@ -1050,13 +1986,13 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 
 <!-- ══════════ CYCLES ══════════ -->
 <section class="cycles" id="cycles">
-  <div class="section-label">Nos pédagogies</div>
-  <div class="gold-bar"></div>
-  <h2 class="section-title">Améliorer le monde de votre enfant</h2>
-  <p class="section-desc">Un encadrement adapté à chaque étape du parcours scolaire, du préscolaire jusqu'au baccalauréat.</p>
-  <div class="cycles-grid">
-    <div class="cycle-card">
-      <div class="cycle-icon">🌱</div>
+  <div class="section-label reveal-item">Nos pédagogies</div>
+  <div class="gold-bar" style="margin:0.8rem auto 1.6rem;"></div>
+  <h2 class="section-title reveal-item delay-1">Former l'élève de demain</h2>
+  <p class="section-desc reveal-item delay-2" style="margin:0 auto 0.5rem;">Un encadrement adapté à chaque étape du parcours scolaire, du préscolaire jusqu'au baccalauréat.</p>
+  <div class="cycles-grid" style="margin-top:3.5rem">
+    <div class="cycle-card reveal-item delay-2">
+      <span class="cycle-icon">🌱</span>
       <div class="cycle-title">Préscolaire</div>
       <p class="cycle-desc">Un cadre épanouissant pour la petite enfance avec un équipement divers et adapté. L'éveil de l'enfant au centre de notre démarche pédagogique.</p>
       <div class="cycle-tags">
@@ -1065,8 +2001,8 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
         <span class="cycle-tag">Créativité</span>
       </div>
     </div>
-    <div class="cycle-card">
-      <div class="cycle-icon">📚</div>
+    <div class="cycle-card reveal-item delay-4">
+      <span class="cycle-icon">📚</span>
       <div class="cycle-title">Élémentaire</div>
       <p class="cycle-desc">Une équipe pédagogique dédiée qui accompagne chaque élève dans l'acquisition des fondamentaux. Préparation rigoureuse au CFEE et à l'entrée en 6ème.</p>
       <div class="cycle-tags">
@@ -1075,8 +2011,8 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
         <span class="cycle-tag">Fondamentaux</span>
       </div>
     </div>
-    <div class="cycle-card">
-      <div class="cycle-icon">🏆</div>
+    <div class="cycle-card reveal-item delay-6">
+      <span class="cycle-icon">🏆</span>
       <div class="cycle-title">Moyen & Secondaire</div>
       <p class="cycle-desc">L'éducation n'a pas de prix pour l'ASD. Nous faisons le nécessaire pour accompagner chaque élève vers le BFEM et le Baccalauréat avec excellence.</p>
       <div class="cycle-tags">
@@ -1090,21 +2026,21 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 
 <!-- ══════════ POURQUOI NOUS ══════════ -->
 <section class="pourquoi" id="pourquoi">
-  <div class="section-label">Pourquoi choisir l'ASD</div>
+  <div class="section-label reveal-item">Pourquoi choisir l'ASD</div>
   <div class="gold-bar"></div>
-  <h2 class="section-title">Apporter l'excellence à votre enfant</h2>
-  <div class="pourquoi-grid">
-    <div class="pourquoi-card">
+  <h2 class="section-title reveal-item delay-1">Apporter l'excellence à votre enfant</h2>
+  <div class="pourquoi-grid" style="max-width:1200px;margin:3.5rem auto 0;">
+    <div class="pourquoi-card reveal-item delay-2">
       <div class="pourquoi-num">01</div>
       <div class="pourquoi-title">Des réponses claires et une communication ouverte</div>
       <p class="pourquoi-desc">Nous fournissons des réponses précises aux parents grâce à une communication transparente et un suivi pédagogique régulier tout au long de l'année.</p>
     </div>
-    <div class="pourquoi-card">
+    <div class="pourquoi-card reveal-item delay-4">
       <div class="pourquoi-num">02</div>
-      <div class="pourquoi-title">Un établissement de référence en Casamance</div>
-      <p class="pourquoi-desc">Avec un taux de réussite exceptionnel aux examens nationaux, l'ASD s'impose comme une référence en matière d'éducation au cœur de Ziguinchor.</p>
+      <div class="pourquoi-title">Un établissement de référence à Dakar</div>
+      <p class="pourquoi-desc">Avec un taux de réussite exceptionnel aux examens nationaux, l'ASD s'impose comme une référence en matière d'éducation au cœur de Keur Massar.</p>
     </div>
-    <div class="pourquoi-card">
+    <div class="pourquoi-card reveal-item delay-6">
       <div class="pourquoi-num">03</div>
       <div class="pourquoi-title">Une pédagogie personnalisée pour chaque élève</div>
       <p class="pourquoi-desc">Chaque enfant est unique. Nous adaptons notre approche pédagogique à ses besoins spécifiques pour révéler son plein potentiel et le mener vers la réussite.</p>
@@ -1114,64 +2050,34 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 
 <!-- ══════════ CURRICULUM ══════════ -->
 <section class="curriculum" id="curriculum">
-  <div class="curriculum-header">
-    <div>
-      <div class="section-label">Notre programme</div>
-      <div class="gold-bar"></div>
-      <h2 class="section-title">Notre Curriculum</h2>
+  <div style="max-width:1200px;margin:0 auto;">
+    <div class="curriculum-header">
+      <div class="reveal-left">
+        <div class="section-label">Notre programme</div>
+        <div class="gold-bar"></div>
+        <h2 class="section-title">Notre Curriculum</h2>
+      </div>
+      <p class="section-desc reveal-right" style="max-width:380px;text-align:right;">Un programme équilibré alliant excellence académique et développement global de l'élève.</p>
     </div>
-    <p class="section-desc" style="max-width:380px;text-align:right;">Un programme équilibré alliant excellence académique et développement global de l'élève.</p>
-  </div>
-  <div class="curriculum-grid">
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">📐</div>
-      <div class="curriculum-name">Mathématiques</div>
-      <div class="curriculum-sub">Résolution de problèmes, logique et pensée critique à travers des méthodes actives.</div>
-    </div>
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">📖</div>
-      <div class="curriculum-name">Langues & Arts</div>
-      <div class="curriculum-sub">Expression littéraire, créativité et initiation aux arts visuels et scéniques.</div>
-    </div>
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">🔬</div>
-      <div class="curriculum-name">Sciences</div>
-      <div class="curriculum-sub">Expérimentation, démarche scientifique et découverte des enjeux technologiques.</div>
-    </div>
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">🌍</div>
-      <div class="curriculum-name">Histoire & Géo</div>
-      <div class="curriculum-sub">Analyse des sociétés passées et présentes pour comprendre le monde contemporain.</div>
-    </div>
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">🌐</div>
-      <div class="curriculum-name">Langues Étrangères</div>
-      <div class="curriculum-sub">Anglais, arabe et espagnol avec projets interculturels dès le préscolaire.</div>
-    </div>
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">💻</div>
-      <div class="curriculum-name">Informatique</div>
-      <div class="curriculum-sub">Initiation au numérique et à la programmation dispensée à tous les niveaux.</div>
-    </div>
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">⚽</div>
-      <div class="curriculum-name">Sport & Santé</div>
-      <div class="curriculum-sub">Développement corporel, sports collectifs et équilibre physique et mental.</div>
-    </div>
-    <div class="curriculum-card">
-      <div class="curriculum-emoji">🎨</div>
-      <div class="curriculum-name">Cours au choix</div>
-      <div class="curriculum-sub">Théâtre, musique, journalisme : une spécialisation adaptée à chaque passion.</div>
+    <div class="curriculum-grid">
+      <div class="curriculum-card reveal-item delay-1"><span class="curriculum-emoji">📐</span><div class="curriculum-name">Mathématiques</div><div class="curriculum-sub">Résolution de problèmes, logique et pensée critique à travers des méthodes actives.</div></div>
+      <div class="curriculum-card reveal-item delay-2"><span class="curriculum-emoji">📖</span><div class="curriculum-name">Langues & Arts</div><div class="curriculum-sub">Expression littéraire, créativité et initiation aux arts visuels et scéniques.</div></div>
+      <div class="curriculum-card reveal-item delay-3"><span class="curriculum-emoji">🔬</span><div class="curriculum-name">Sciences</div><div class="curriculum-sub">Expérimentation, démarche scientifique et découverte des enjeux technologiques.</div></div>
+      <div class="curriculum-card reveal-item delay-4"><span class="curriculum-emoji">🌍</span><div class="curriculum-name">Histoire & Géo</div><div class="curriculum-sub">Analyse des sociétés passées et présentes pour comprendre le monde contemporain.</div></div>
+      <div class="curriculum-card reveal-item delay-5"><span class="curriculum-emoji">🌐</span><div class="curriculum-name">Langues Étrangères</div><div class="curriculum-sub">Anglais, arabe et espagnol avec projets interculturels dès le préscolaire.</div></div>
+      <div class="curriculum-card reveal-item delay-6"><span class="curriculum-emoji">💻</span><div class="curriculum-name">Informatique</div><div class="curriculum-sub">Initiation au numérique et à la programmation dispensée à tous les niveaux.</div></div>
+      <div class="curriculum-card reveal-item delay-7"><span class="curriculum-emoji">⚽</span><div class="curriculum-name">Sport & Santé</div><div class="curriculum-sub">Développement corporel, sports collectifs et équilibre physique et mental.</div></div>
+      <div class="curriculum-card reveal-item delay-8"><span class="curriculum-emoji">🎨</span><div class="curriculum-name">Cours au choix</div><div class="curriculum-sub">Théâtre, musique, journalisme : une spécialisation adaptée à chaque passion.</div></div>
     </div>
   </div>
 </section>
 
 <!-- ══════════ ANNONCES ══════════ -->
 <section class="annonces" id="annonces">
-  <div class="section-label">Actualités</div>
+  <div class="section-label reveal-item">Actualités</div>
   <div class="gold-bar"></div>
-  <h2 class="section-title">Annonces & Informations</h2>
-  <p class="section-desc">Restez informés des dernières nouvelles de l'école, des événements et des dates importantes.</p>
+  <h2 class="section-title reveal-item delay-1">Annonces & Informations</h2>
+  <p class="section-desc reveal-item delay-2">Restez informés des dernières nouvelles de l'école, des événements et des dates importantes.</p>
   <div class="annonces-grid" id="annoncesGrid">
     <div class="fb-loading"><div class="fb-spinner"></div> Chargement des annonces...</div>
   </div>
@@ -1179,10 +2085,10 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 
 <!-- ══════════ RÉSULTATS ══════════ -->
 <section class="resultats" id="resultats">
-  <div class="section-label">Résultats Scolaires</div>
+  <div class="section-label reveal-item">Résultats Scolaires</div>
   <div class="gold-bar"></div>
-  <h2 class="section-title">Tableau des Résultats</h2>
-  <p class="section-desc">Consultez les notes et classements des élèves par cycle et par trimestre.</p>
+  <h2 class="section-title reveal-item delay-1">Tableau des Résultats</h2>
+  <p class="section-desc reveal-item delay-2">Consultez les notes et classements des élèves par cycle et par trimestre.</p>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab(this,'primaire')">Élémentaire</button>
@@ -1191,82 +2097,64 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
     <button class="tab-btn" onclick="switchTab(this,'saisie')">✏️ Saisir résultats</button>
   </div>
 
-  <!-- Élémentaire -->
   <div class="tab-content active" id="tab-primaire">
     <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Rang</th><th>Nom & Prénom</th><th>Classe</th>
-            <th>Trim. 1</th><th>Trim. 2</th><th>Trim. 3</th>
-            <th>Moy. Annuelle</th><th>Mention</th>
-          </tr>
-        </thead>
-        <tbody id="table-primaire-body">
-          <tr><td colspan="8" style="text-align:center;padding:2rem;">
-            <div class="fb-loading" style="justify-content:center"><div class="fb-spinner"></div> Chargement depuis Firebase...</div>
-          </td></tr>
-        </tbody>
-      </table>
+      <table><thead><tr>
+        <th>Rang</th><th>Nom & Prénom</th><th>Classe</th>
+        <th>Trim. 1</th><th>Trim. 2</th><th>Trim. 3</th>
+        <th>Moy. Annuelle</th><th>Mention</th>
+      </tr></thead>
+      <tbody id="table-primaire-body">
+        <tr><td colspan="8" style="text-align:center;padding:2rem;">
+          <div class="fb-loading" style="justify-content:center"><div class="fb-spinner"></div> Chargement depuis Firebase...</div>
+        </td></tr>
+      </tbody></table>
     </div>
   </div>
 
-  <!-- Collège -->
   <div class="tab-content" id="tab-college">
     <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Rang</th><th>Nom & Prénom</th><th>Classe</th>
-            <th>Trim. 1</th><th>Trim. 2</th><th>Trim. 3</th>
-            <th>Moy. Annuelle</th><th>Mention</th>
-          </tr>
-        </thead>
-        <tbody id="table-college-body">
-          <tr><td colspan="8" style="text-align:center;padding:2rem;">
-            <div class="fb-loading" style="justify-content:center"><div class="fb-spinner"></div> Chargement depuis Firebase...</div>
-          </td></tr>
-        </tbody>
-      </table>
+      <table><thead><tr>
+        <th>Rang</th><th>Nom & Prénom</th><th>Classe</th>
+        <th>Trim. 1</th><th>Trim. 2</th><th>Trim. 3</th>
+        <th>Moy. Annuelle</th><th>Mention</th>
+      </tr></thead>
+      <tbody id="table-college-body">
+        <tr><td colspan="8" style="text-align:center;padding:2rem;">
+          <div class="fb-loading" style="justify-content:center"><div class="fb-spinner"></div> Chargement depuis Firebase...</div>
+        </td></tr>
+      </tbody></table>
     </div>
   </div>
 
-  <!-- Lycée -->
   <div class="tab-content" id="tab-lycee">
     <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Rang</th><th>Nom & Prénom</th><th>Classe</th>
-            <th>Trim. 1</th><th>Trim. 2</th><th>Trim. 3</th>
-            <th>Moy. Annuelle</th><th>Mention</th>
-          </tr>
-        </thead>
-        <tbody id="table-lycee-body">
-          <tr><td colspan="8" style="text-align:center;padding:2rem;">
-            <div class="fb-loading" style="justify-content:center"><div class="fb-spinner"></div> Chargement depuis Firebase...</div>
-          </td></tr>
-        </tbody>
-      </table>
+      <table><thead><tr>
+        <th>Rang</th><th>Nom & Prénom</th><th>Classe</th>
+        <th>Trim. 1</th><th>Trim. 2</th><th>Trim. 3</th>
+        <th>Moy. Annuelle</th><th>Mention</th>
+      </tr></thead>
+      <tbody id="table-lycee-body">
+        <tr><td colspan="8" style="text-align:center;padding:2rem;">
+          <div class="fb-loading" style="justify-content:center"><div class="fb-spinner"></div> Chargement depuis Firebase...</div>
+        </td></tr>
+      </tbody></table>
     </div>
   </div>
 
-  <!-- Saisie (Admin) -->
   <div class="tab-content" id="tab-saisie">
     <div class="saisie-wrap">
-      <div class="lock-overlay" id="lockSaisie" onclick="demanderAuth('saisie')" style="border-radius:12px;min-height:320px;">
-        <div class="lock-icon">🔒</div>
-        <div class="lock-text">Accès réservé aux enseignants</div>
-        <div class="lock-sub">Connectez-vous pour saisir les résultats</div>
+      <div class="protected-zone">
+        <div class="lock-overlay" id="lockSaisie" onclick="demanderAuth('saisie')" style="border-radius:12px;min-height:320px;">
+          <div class="lock-icon">🔒</div>
+          <div class="lock-text">Accès réservé aux enseignants</div>
+          <div class="lock-sub">Connectez-vous pour saisir les résultats</div>
+        </div>
       </div>
       <p style="color:var(--muted);font-size:13.5px;margin-bottom:1.8rem;">Formulaire réservé aux enseignants. Les données sont enregistrées en temps réel dans Firebase.</p>
       <div class="form-row">
-        <div class="form-group">
-          <label>Nom de l'élève</label>
-          <input type="text" id="s-nom" placeholder="Ex: Diallo Fatoumata">
-        </div>
-        <div class="form-group">
-          <label>Cycle</label>
+        <div class="form-group"><label>Nom de l'élève</label><input type="text" id="s-nom" placeholder="Ex: Diallo Fatoumata"></div>
+        <div class="form-group"><label>Cycle</label>
           <select id="s-cycle">
             <option value="primaire">Élémentaire</option>
             <option value="college">Collège</option>
@@ -1274,75 +2162,94 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
           </select>
         </div>
       </div>
-      <div class="form-group">
-        <label>Classe</label>
-        <select id="s-classe">
-          <option>CI</option><option>CP</option><option>CE1</option><option>CE2</option>
-          <option>CM1</option><option>CM2</option>
-          <option>6ème</option><option>5ème</option><option>4ème</option><option>3ème</option>
-          <option>2nde</option><option>1ère S</option><option>1ère L</option>
-          <option>Terminale S</option><option>Terminale L</option>
-        </select>
-      </div>
+      <div class="form-group"><label>Classe</label><input type="text" id="s-classe" placeholder="Ex: CM2 · 3ème · Terminale S"></div>
       <div class="form-row">
-        <div class="form-group">
-          <label>Moy. Trimestre 1</label>
-          <input type="number" id="s-t1" placeholder="0.00" min="0" max="20" step="0.1">
-        </div>
-        <div class="form-group">
-          <label>Moy. Trimestre 2</label>
-          <input type="number" id="s-t2" placeholder="0.00" min="0" max="20" step="0.1">
-        </div>
+        <div class="form-group"><label>Note Trim. 1 (sur 20)</label><input type="number" id="s-t1" placeholder="0.0" min="0" max="20" step="0.1"></div>
+        <div class="form-group"><label>Note Trim. 2 (sur 20)</label><input type="number" id="s-t2" placeholder="0.0" min="0" max="20" step="0.1"></div>
       </div>
-      <div class="form-group" style="max-width:220px;">
-        <label>Moy. Trimestre 3</label>
-        <input type="number" id="s-t3" placeholder="0.00" min="0" max="20" step="0.1">
-      </div>
+      <div class="form-group" style="max-width:280px;"><label>Note Trim. 3 (sur 20)</label><input type="number" id="s-t3" placeholder="0.0" min="0" max="20" step="0.1"></div>
       <button class="btn-submit" onclick="ajouterResultat()">Ajouter au tableau</button>
-      <div id="saisie-ok" class="success-msg">✅ Résultat ajouté avec succès !</div>
+      <div class="success-msg" id="saisie-ok">✅ Résultat enregistré avec succès dans Firebase !</div>
     </div>
   </div>
 </section>
 
 <!-- ══════════ GALERIE ══════════ -->
 <section class="galerie" id="galerie">
-  <div class="section-label">Vie Scolaire</div>
+  <div class="section-label reveal-item">Vie scolaire</div>
   <div class="gold-bar"></div>
-  <h2 class="section-title">Galerie Photos</h2>
-  <p class="section-desc">Découvrez les moments forts de la vie de notre école : cérémonies, sorties, activités sportives et bien plus.</p>
-  <div class="galerie-filters">
+  <h2 class="section-title reveal-item delay-1">Galerie Photo</h2>
+  <p class="section-desc reveal-item delay-2">Découvrez la vie scolaire, les événements et les moments forts de l'ASD High School.</p>
+  <div class="galerie-filters reveal-item delay-3">
     <button class="filter-btn active" onclick="filterGalerie(this,'tous')">Tous</button>
-    <button class="filter-btn" onclick="filterGalerie(this,'sport')">Sport</button>
-    <button class="filter-btn" onclick="filterGalerie(this,'culture')">Culture</button>
-    <button class="filter-btn" onclick="filterGalerie(this,'classe')">En Classe</button>
-    <button class="filter-btn" onclick="filterGalerie(this,'ceremony')">Cérémonies</button>
+    <button class="filter-btn" onclick="filterGalerie(this,'sport')">⚽ Sport</button>
+    <button class="filter-btn" onclick="filterGalerie(this,'culture')">🎭 Culture</button>
+    <button class="filter-btn" onclick="filterGalerie(this,'classe')">📚 En Classe</button>
+    <button class="filter-btn" onclick="filterGalerie(this,'ceremony')">🎓 Cérémonies</button>
   </div>
   <div class="galerie-grid" id="galerieGrid">
-    <div class="fb-loading" style="grid-column:1/-1"><div class="fb-spinner"></div> Chargement des photos...</div>
-    <div class="upload-zone protected-zone" id="uploadZoneWrapper" style="position:relative;display:none;">
+    <div class="fb-loading"><div class="fb-spinner"></div> Chargement de la galerie...</div>
+  </div>
+  <div id="uploadZoneWrapper" style="display:none;">
+    <div class="protected-zone">
       <div class="lock-overlay" id="lockGalerie" onclick="demanderAuth('galerie')">
         <div class="lock-icon">🔒</div>
-        <div class="lock-text">Zone réservée à l'administration</div>
-        <div class="lock-sub">Cliquez pour vous connecter</div>
+        <div class="lock-text">Ajouter des photos</div>
+        <div class="lock-sub">Connectez-vous pour gérer la galerie</div>
       </div>
-      <div onclick="document.getElementById('fileInput').click()" style="cursor:pointer">
-        <div style="font-size:2rem;opacity:0.4;">📷</div>
-        <p><strong>Ajouter des photos</strong></p>
-        <p>Choisissez une catégorie puis importez vos images</p>
-        <div style="margin-top:0.75rem;">
-          <select id="uploadCat" onclick="event.stopPropagation()" style="background:var(--navy3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:var(--white);font-size:13px;font-family:'Outfit',sans-serif;">
-            <option value="tous">Tous</option>
-            <option value="sport">Sport</option>
-            <option value="culture">Culture</option>
-            <option value="classe">En Classe</option>
-            <option value="ceremony">Cérémonies</option>
-          </select>
-        </div>
+    </div>
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <div style="font-size:2rem;margin-bottom:0.5rem;">📷</div>
+      <strong>Cliquez pour ajouter des photos</strong>
+      <p>Formats acceptés : JPG, PNG, WEBP · Plusieurs fichiers possibles</p>
+      <div style="margin-top:0.8rem;display:flex;align-items:center;gap:0.5rem;justify-content:center;">
+        <label style="font-size:12.5px;color:var(--muted)">Catégorie :</label>
+        <select id="uploadCat" onclick="event.stopPropagation()" style="background:var(--navy3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:6px 12px;color:var(--white);font-size:13px;font-family:'Outfit',sans-serif;">
+          <option value="tous">Tous</option>
+          <option value="sport">Sport</option>
+          <option value="culture">Culture</option>
+          <option value="classe">En Classe</option>
+          <option value="ceremony">Cérémonies</option>
+        </select>
       </div>
-      <div class="upload-progress" id="uploadProgress">
-        <div class="upload-progress-bar" id="uploadBar"></div>
+    </div>
+    <div class="upload-progress" id="uploadProgress">
+      <div class="upload-progress-bar" id="uploadBar"></div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" multiple onchange="handleUpload(event)">
+  </div>
+</section>
+
+<!-- ══════════ TÉMOIGNAGES ══════════ -->
+<section class="temoignages" id="temoignages">
+  <div class="section-label reveal-item">Ce qu'ils disent</div>
+  <div class="gold-bar" style="margin:0.8rem auto 1.6rem;"></div>
+  <h2 class="section-title reveal-item delay-1">La communauté ASD témoigne</h2>
+  <p class="section-desc reveal-item delay-2" style="margin:0 auto 0.5rem;">Les parents, élèves et anciens de l'ASD High School partagent leur expérience.</p>
+  <div class="temoignages-grid">
+    <div class="temoignage-card reveal-item delay-2">
+      <div class="temoignage-stars">★★★★★</div>
+      <p class="temoignage-text">Mon fils a obtenu son BAC avec mention Très Bien grâce au suivi exceptionnel des professeurs. L'ASD High School est vraiment une école d'excellence à Keur Massar, Dakar.</p>
+      <div class="temoignage-author">
+        <div class="temoignage-avatar">AF</div>
+        <div><div class="temoignage-name">Aminata Fall</div><div class="temoignage-role">Parent d'élève · Lycée</div></div>
       </div>
-      <input type="file" id="fileInput" accept="image/*" multiple onchange="handleUpload(event)">
+    </div>
+    <div class="temoignage-card reveal-item delay-4">
+      <div class="temoignage-stars">★★★★★</div>
+      <p class="temoignage-text">J'ai passé toute ma scolarité à l'ASD, du CI jusqu'en Terminale. Aujourd'hui ingénieur à Dakar, je dois tout à l'encadrement rigoureux et bienveillant de cet établissement.</p>
+      <div class="temoignage-author">
+        <div class="temoignage-avatar">MD</div>
+        <div><div class="temoignage-name">Moussa Diémé</div><div class="temoignage-role">Ancien élève · Promotion 2018</div></div>
+      </div>
+    </div>
+    <div class="temoignage-card reveal-item delay-6">
+      <div class="temoignage-stars">★★★★★</div>
+      <p class="temoignage-text">La communication avec les parents est exemplaire. Les résultats sont accessibles en ligne, les annonces publiées rapidement. Une école moderne qui accompagne vraiment les familles.</p>
+      <div class="temoignage-author">
+        <div class="temoignage-avatar">FK</div>
+        <div><div class="temoignage-name">Fatou Kouyaté</div><div class="temoignage-role">Mère de famille · 2 enfants inscrits</div></div>
+      </div>
     </div>
   </div>
 </section>
@@ -1350,15 +2257,15 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 <!-- ══════════ REJOINDRE ══════════ -->
 <section class="rejoindre" id="rejoindre">
   <div class="rejoindre-inner">
-    <div class="section-label">Rejoignez-nous</div>
+    <div class="section-label reveal-item" style="justify-content:center;">Rejoignez-nous</div>
     <div class="gold-bar" style="margin:1rem auto 1.5rem;"></div>
-    <h2 class="section-title">Apprentissage, amitié<br>et plaisir pour tous</h2>
-    <p class="section-desc">Un modèle dans le système éducatif national, au service des familles de Ziguinchor et de la Casamance.</p>
-    <div class="hero-actions" style="justify-content:center;">
+    <h2 class="section-title reveal-item delay-1">Apprentissage, amitié<br>et plaisir pour tous</h2>
+    <p class="section-desc reveal-item delay-2">Un modèle dans le système éducatif national, au service des familles de Keur Massar et de Dakar.</p>
+    <div class="hero-actions reveal-item delay-3" style="justify-content:center;">
       <a href="#contact" class="btn-primary">Inscrire mon enfant</a>
       <a href="#contact" class="btn-outline">Nous contacter</a>
     </div>
-    <div class="rejoindre-cards">
+    <div class="rejoindre-cards reveal-item delay-4">
       <div class="rejoindre-card">
         <div class="rc-icon">👶</div>
         <div class="rc-title">Pour les enfants</div>
@@ -1372,7 +2279,7 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
       <div class="rejoindre-card">
         <div class="rc-icon">🏅</div>
         <div class="rc-title">15 ans d'expérience</div>
-        <div class="rc-desc">Une décennie et demie d'excellence au service de la réussite des enfants de Casamance.</div>
+        <div class="rc-desc">Une décennie et demie d'excellence au service de la réussite des enfants de Dakar.</div>
       </div>
     </div>
   </div>
@@ -1380,54 +2287,43 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 
 <!-- ══════════ CONTACT ══════════ -->
 <section class="contact" id="contact">
-  <div class="section-label">Nous Rejoindre</div>
+  <div class="section-label reveal-item">Nous Rejoindre</div>
   <div class="gold-bar"></div>
-  <h2 class="section-title">Contact & Inscription</h2>
+  <h2 class="section-title reveal-item delay-1">Contact & Inscription</h2>
   <div class="contact-grid">
-    <div class="contact-info">
+    <div class="contact-info reveal-left">
       <p class="section-desc" style="margin-bottom:2.5rem;max-width:100%;">Notre équipe administrative est disponible pour répondre à toutes vos questions concernant l'inscription, les frais ou la vie scolaire.</p>
       <div class="info-item">
         <div class="info-icon">📍</div>
-        <div>
-          <div class="info-label">Adresse</div>
-          <div class="info-value">Ziguinchor, Casamance, Sénégal</div>
-        </div>
+        <div><div class="info-label">Adresse</div><div class="info-value">Cité Gendarmerie, Keur Massar<br>Dakar, Sénégal</div></div>
       </div>
       <div class="info-item">
         <div class="info-icon">📞</div>
-        <div>
-          <div class="info-label">Téléphone</div>
-          <div class="info-value">+221 77 450 72 50<br>+221 76 067 83 74</div>
-        </div>
+        <div><div class="info-label">Téléphone</div><div class="info-value">+221 77 450 72 50<br>+221 76 067 83 74</div></div>
       </div>
       <div class="info-item">
         <div class="info-icon">⏰</div>
-        <div>
-          <div class="info-label">Horaires d'ouverture</div>
-          <div class="info-value">Lun–Ven : 07h30 – 18h00<br>Samedi : 08h00 – 13h00</div>
-        </div>
+        <div><div class="info-label">Horaires d'ouverture</div><div class="info-value">Lun–Ven : 07h30 – 18h00<br>Samedi : 08h00 – 13h00</div></div>
       </div>
       <div class="info-item">
         <div class="info-icon">✉️</div>
-        <div>
-          <div class="info-label">Email</div>
-          <div class="info-value">contact@ecole-asd.sn</div>
-        </div>
+        <div><div class="info-label">Email</div><div class="info-value">contact@ecole-asd.sn</div></div>
+      </div>
+      <div class="info-item">
+        <div class="info-icon">🗺️</div>
+        <div><div class="info-label">Localisation</div>
+        <div class="info-value" style="font-size:13px;">
+          <a href="https://maps.google.com/?q=Cité+Gendarmerie+Keur+Massar+Dakar+Sénégal" target="_blank" style="color:var(--gold);text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-weight:600;transition:opacity 0.2s;" onmouseover="this.style.opacity='0.75'" onmouseout="this.style.opacity='1'">
+            📌 Voir sur Google Maps →
+          </a>
+        </div></div>
       </div>
     </div>
-    <div class="contact-form">
       <div class="form-row">
-        <div class="form-group">
-          <label>Nom complet</label>
-          <input type="text" id="c-nom" placeholder="Votre nom">
-        </div>
-        <div class="form-group">
-          <label>Téléphone</label>
-          <input type="tel" id="c-tel" placeholder="+221 XX XXX XX XX">
-        </div>
+        <div class="form-group"><label>Nom complet</label><input type="text" id="c-nom" placeholder="Votre nom"></div>
+        <div class="form-group"><label>Téléphone</label><input type="tel" id="c-tel" placeholder="+221 XX XXX XX XX"></div>
       </div>
-      <div class="form-group">
-        <label>Objet</label>
+      <div class="form-group"><label>Objet</label>
         <select id="c-objet">
           <option value="">Choisir un objet...</option>
           <option>Inscription d'un élève</option>
@@ -1437,10 +2333,7 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
           <option>Autre demande</option>
         </select>
       </div>
-      <div class="form-group">
-        <label>Message</label>
-        <textarea id="c-message" placeholder="Écrivez votre message ici..."></textarea>
-      </div>
+      <div class="form-group"><label>Message</label><textarea id="c-message" placeholder="Écrivez votre message ici..."></textarea></div>
       <button class="btn-submit" onclick="envoyerMessage()">Envoyer le message</button>
       <div class="success-msg" id="contact-ok">✅ Message envoyé ! Nous vous répondrons dans les 24 heures.</div>
     </div>
@@ -1449,20 +2342,42 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
 
 <!-- ══════════ FOOTER ══════════ -->
 <footer>
-  <div class="footer-emblem">ASD</div>
-  <div class="footer-name">Groupe Scolaire Aline Sitoé Diatta</div>
-  <p>Former les esprits d'aujourd'hui pour construire le Sénégal de demain.</p>
-  <ul class="footer-links">
-    <li><a href="#accueil">Accueil</a></li>
-    <li><a href="#presentation">Présentation</a></li>
-    <li><a href="#cycles">Pédagogies</a></li>
-    <li><a href="#annonces">Annonces</a></li>
-    <li><a href="#resultats">Résultats</a></li>
-    <li><a href="#galerie">Galerie</a></li>
-    <li><a href="#contact">Contact</a></li>
-  </ul>
-  <p class="copyright">© 2025 Groupe Scolaire Aline Sitoé Diatta · Ziguinchor, Casamance, Sénégal · Tous droits réservés</p>
+  <div class="footer-inner">
+    <div class="footer-emblem" id="footerEmblem">ASD</div>
+    <div class="footer-name">Groupe Scolaire Aline Sitoé Diatta High School</div>
+    <p>Former les esprits d'aujourd'hui pour construire le Sénégal de demain.</p>
+    <div class="footer-socials">
+      <a href="#" class="social-btn" title="Facebook">📘</a>
+      <a href="#" class="social-btn" title="WhatsApp">📱</a>
+      <a href="#" class="social-btn" title="Instagram">📸</a>
+      <a href="mailto:contact@ecole-asd.sn" class="social-btn" title="Email">✉️</a>
+    </div>
+    <ul class="footer-links">
+      <li><a href="#accueil">Accueil</a></li>
+      <li><a href="#presentation">Présentation</a></li>
+      <li><a href="#cycles">Pédagogies</a></li>
+      <li><a href="#annonces">Annonces</a></li>
+      <li><a href="#resultats">Résultats</a></li>
+      <li><a href="#galerie">Galerie</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+    <div class="footer-divider"></div>
+    <p class="copyright">© 2025 Groupe Scolaire Aline Sitoé Diatta High School · Keur Massar · Cité Gendarmerie, Dakar, Sénégal · Tous droits réservés</p>
+  </div>
 </footer>
+
+<!-- ══════════ FLOATING BUTTONS ══════════ -->
+<div class="fab-group">
+  <a href="https://wa.me/221774507250" class="fab fab-whatsapp" target="_blank" title="Contacter sur WhatsApp">📲</a>
+  <button class="fab fab-top" id="fabTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Retour en haut">↑</button>
+</div>
+
+<!-- ══════════ LIGHTBOX ══════════ -->
+<div id="lightbox" onclick="if(event.target===this)closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="">
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
 
 <!-- ══════════ AUTH MODAL ══════════ -->
 <div class="auth-overlay" id="authOverlay">
@@ -1497,7 +2412,7 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
     </div>
     <div class="form-group">
       <label>Contenu</label>
-      <textarea id="af-corps" class="auth-input-email" style="min-height:90px;resize:vertical" placeholder="Détails de l'annonce..."></textarea>
+      <textarea id="af-corps" class="auth-input-email" style="min-height:100px;resize:vertical" placeholder="Détails de l'annonce..."></textarea>
     </div>
     <button class="auth-btn" id="af-btn" onclick="soumettrAnnonce()">Publier l'annonce</button>
   </div>
@@ -1512,13 +2427,208 @@ footer p { color: var(--muted); font-size: 13px; line-height: 1.7; }
   </div>
 </div>
 
+<!-- ══════════ LOGO UPLOAD TRIGGER ══════════ -->
+<button id="logoUploadTrigger" onclick="ouvrirLogoModal()" title="Changer le logo de l'école">
+  🖼️ Changer le logo
+</button>
+
+<!-- ══════════ LOGO UPLOAD MODAL ══════════ -->
+<div id="logoModal" onclick="if(event.target===this)fermerLogoModal()">
+  <div class="logo-modal-box">
+    <button class="logo-modal-close" onclick="fermerLogoModal()">✕</button>
+    <div class="logo-modal-title">Logo de l'école</div>
+    <p class="logo-modal-sub">Importez votre logo pour remplacer le texte "ASD" dans la navigation, le chargement et le pied de page. PNG ou SVG avec fond transparent recommandé.</p>
+
+    <div class="logo-drop-zone" id="logoDropZone">
+      <input type="file" id="logoFileInput" accept="image/png,image/svg+xml,image/jpeg,image/webp" onchange="handleLogoFile(this.files[0])">
+      <span class="logo-drop-icon">🏫</span>
+      <div class="logo-drop-text">Cliquez ou glissez votre logo ici</div>
+      <div class="logo-drop-hint">PNG · SVG · JPG · WEBP — Fond transparent recommandé</div>
+    </div>
+
+    <div id="logoPreviewArea">
+      <div class="logo-preview-label">Aperçu en situation</div>
+      <div class="logo-previews">
+        <div class="logo-preview-item">
+          <div class="logo-preview-box" style="width:80px;height:80px;border-radius:20px;">
+            <img id="previewLarge" src="" alt="Aperçu">
+          </div>
+          <span class="logo-preview-caption">Chargement</span>
+        </div>
+        <div class="logo-preview-item">
+          <div class="logo-preview-box" style="width:46px;height:46px;border-radius:10px;">
+            <img id="previewNav" src="" alt="Aperçu">
+          </div>
+          <span class="logo-preview-caption">Navigation</span>
+        </div>
+        <div class="logo-preview-item">
+          <div class="logo-preview-box" style="width:58px;height:58px;border-radius:14px;">
+            <img id="previewFooter" src="" alt="Aperçu">
+          </div>
+          <span class="logo-preview-caption">Pied de page</span>
+        </div>
+      </div>
+      <div class="logo-modal-actions">
+        <button class="logo-btn-apply" id="logoBtnApply" onclick="appliquerLogo()">✅ Appliquer le logo</button>
+        <button class="logo-btn-reset" onclick="reinitialiserLogo()">↩ Réinitialiser</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ WHATSAPP FAB ══════════ -->
+<a href="https://wa.me/221774507250?text=Bonjour%2C%20je%20souhaite%20avoir%20des%20informations%20sur%20le%20Groupe%20Scolaire%20Aline%20Sitoé%20Diatta" target="_blank" class="fab-whatsapp" title="Contactez-nous sur WhatsApp">📱</a>
+
+<!-- ══════════ TOAST CONTAINER ══════════ -->
+<div id="toastContainer"></div>
+
 <script>
-// ── Navigation scroll effect ──
-window.addEventListener('scroll', () => {
-  document.getElementById('mainNav').classList.toggle('scrolled', window.scrollY > 20);
+// ══════════════════════════════════════════
+//  PRELOADER
+// ══════════════════════════════════════════
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('preloader').classList.add('hidden');
+    // Trigger hero counter animation
+    animateCounters();
+  }, 1600);
 });
 
-// ── Auth ──
+// ══════════════════════════════════════════
+//  SCROLL PROGRESS + FAB TOP
+// ══════════════════════════════════════════
+window.addEventListener('scroll', () => {
+  const scrollTop = window.scrollY;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+  document.getElementById('scrollProgress').style.width = pct + '%';
+  document.getElementById('mainNav').classList.toggle('scrolled', scrollTop > 20);
+  document.getElementById('fabTop').classList.toggle('visible', scrollTop > 400);
+});
+
+// ══════════════════════════════════════════
+//  HERO PARTICLES
+// ══════════════════════════════════════════
+(function() {
+  const container = document.getElementById('heroParticles');
+  if (!container) return;
+  for (let i = 0; i < 22; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random() * 4 + 2;
+    p.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      --dur:${8 + Math.random()*10}s;
+      --delay:${Math.random()*12}s;
+      --op:${0.15 + Math.random()*0.25};
+    `;
+    container.appendChild(p);
+  }
+})();
+
+// ══════════════════════════════════════════
+//  ANIMATED COUNTERS
+// ══════════════════════════════════════════
+function animateCounters() {
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const target = parseInt(el.dataset.count);
+    const suffix = el.dataset.suffix || '';
+    const duration = 2000;
+    const step = target / (duration / 16);
+    let current = 0;
+    const timer = setInterval(() => {
+      current = Math.min(current + step, target);
+      el.textContent = Math.floor(current) + suffix;
+      if (current >= target) clearInterval(timer);
+    }, 16);
+  });
+}
+
+// ══════════════════════════════════════════
+//  SCROLL REVEAL (IntersectionObserver)
+// ══════════════════════════════════════════
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      revealObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+function initReveal() {
+  document.querySelectorAll('.reveal-item, .reveal-left, .reveal-right').forEach(el => {
+    revealObserver.observe(el);
+  });
+}
+window.addEventListener('DOMContentLoaded', initReveal);
+
+// Also re-observe dynamically added cards (Firebase)
+const mutationObserver = new MutationObserver(() => {
+  document.querySelectorAll('.reveal-item:not(.visible)').forEach(el => {
+    revealObserver.observe(el);
+  });
+});
+window.addEventListener('DOMContentLoaded', () => {
+  mutationObserver.observe(document.body, { childList: true, subtree: true });
+});
+
+// ══════════════════════════════════════════
+//  TOAST NOTIFICATIONS
+// ══════════════════════════════════════════
+function showToast(message, type = 'info') {
+  const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${message}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add('removing');
+    setTimeout(() => toast.remove(), 400);
+  }, 3500);
+}
+window.showToast = showToast;
+
+function confirmToast(message) {
+  return window.confirm(message);
+}
+
+// ══════════════════════════════════════════
+//  MOBILE MENU
+// ══════════════════════════════════════════
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobileNav');
+  const btn  = document.getElementById('hamburger');
+  menu.classList.toggle('open');
+  btn.classList.toggle('open');
+}
+function closeMobileMenu() {
+  document.getElementById('mobileNav').classList.remove('open');
+  document.getElementById('hamburger').classList.remove('open');
+}
+
+// ══════════════════════════════════════════
+//  LIGHTBOX
+// ══════════════════════════════════════════
+function openLightbox(url, caption) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightboxCaption').textContent = caption;
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeLightbox(); closeModal(); fermerAuth(); }
+});
+
+// ══════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════
 function demanderAuth() {
   if (window._adminConnecte) return;
   document.getElementById('authEmail').value = '';
@@ -1552,7 +2662,9 @@ async function deconnecterAdmin() {
   await window.firebaseDeconnexion();
 }
 
-// ── Tabs ──
+// ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
 function switchTab(btn, id) {
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
@@ -1561,16 +2673,22 @@ function switchTab(btn, id) {
   if (id==='saisie' && !window._adminConnecte) setTimeout(()=>demanderAuth(),200);
 }
 
-// ── Gallery filter ──
+// ══════════════════════════════════════════
+//  GALLERY FILTER
+// ══════════════════════════════════════════
 function filterGalerie(btn, cat) {
   document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('#galerieGrid .photo-card').forEach(card=>{
-    card.style.display=(cat==='tous'||card.dataset.cat===cat)?'flex':'none';
+    const show = (cat==='tous' || card.dataset.cat===cat);
+    card.style.display = show ? 'flex' : 'none';
+    if (show) { card.style.animation='none'; void card.offsetHeight; card.style.animation=''; }
   });
 }
 
-// ── Modal ──
+// ══════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════
 function openModal(title, body) {
   document.getElementById('modalTitle').textContent=title;
   document.getElementById('modalBody').textContent=body;
@@ -1578,7 +2696,9 @@ function openModal(title, body) {
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 
-// ── Mention ──
+// ══════════════════════════════════════════
+//  MENTION
+// ══════════════════════════════════════════
 function getMention(moy) {
   if (moy>=16) return '<span class="mention mention-tb">Très Bien</span>';
   if (moy>=14) return '<span class="mention mention-b">Bien</span>';
@@ -1586,22 +2706,24 @@ function getMention(moy) {
   return '<span class="mention mention-p">Passable</span>';
 }
 
-// ── Saisie résultats ──
+// ══════════════════════════════════════════
+//  SAISIE RÉSULTATS
+// ══════════════════════════════════════════
 async function ajouterResultat() {
   if (!window._adminConnecte) { demanderAuth(); return; }
-  const nom   = document.getElementById('s-nom').value.trim();
-  const classe= document.getElementById('s-classe').value;
-  const cycle = document.getElementById('s-cycle').value;
-  const t1    = parseFloat(document.getElementById('s-t1').value)||0;
-  const t2    = parseFloat(document.getElementById('s-t2').value)||0;
-  const t3    = parseFloat(document.getElementById('s-t3').value)||0;
-  if (!nom) { alert("Veuillez saisir le nom de l'élève."); return; }
+  const nom    = document.getElementById('s-nom').value.trim();
+  const classe = document.getElementById('s-classe').value;
+  const cycle  = document.getElementById('s-cycle').value;
+  const t1     = parseFloat(document.getElementById('s-t1').value)||0;
+  const t2     = parseFloat(document.getElementById('s-t2').value)||0;
+  const t3     = parseFloat(document.getElementById('s-t3').value)||0;
+  if (!nom) { showToast("Veuillez saisir le nom de l'élève.", 'error'); return; }
   const btn = document.querySelector('#tab-saisie .btn-submit');
   btn.textContent='Enregistrement...'; btn.disabled=true;
   await window.sauvegarderResultat(nom,classe,cycle,t1,t2,t3);
   btn.textContent='Ajouter au tableau'; btn.disabled=false;
   document.getElementById('saisie-ok').style.display='block';
-  setTimeout(()=>document.getElementById('saisie-ok').style.display='none',3000);
+  setTimeout(()=>document.getElementById('saisie-ok').style.display='none',3500);
   document.getElementById('s-nom').value='';
   document.getElementById('s-t1').value='';
   document.getElementById('s-t2').value='';
@@ -1609,33 +2731,40 @@ async function ajouterResultat() {
   document.querySelectorAll('.tab-btn')[0].click();
 }
 
-// ── Upload photos ──
+// ══════════════════════════════════════════
+//  UPLOAD PHOTOS
+// ══════════════════════════════════════════
 async function handleUpload(e) {
   if (!window._adminConnecte) { demanderAuth(); return; }
   const files=e.target.files;
   const progress=document.getElementById('uploadProgress');
   const bar=document.getElementById('uploadBar');
   progress.style.display='block'; let done=0;
+  showToast(`Envoi de ${files.length} photo(s) en cours...`, 'info');
   for (const file of Array.from(files)) {
     const cat=document.getElementById('uploadCat')?.value||'tous';
     await window.uploadPhoto(file,cat); done++;
     bar.style.width=Math.round((done/files.length)*100)+'%';
   }
+  showToast(`${files.length} photo(s) ajoutée(s) avec succès !`, 'success');
   setTimeout(()=>{progress.style.display='none';bar.style.width='0%';},1200);
   e.target.value='';
 }
 
-// ── Contact ──
+// ══════════════════════════════════════════
+//  CONTACT
+// ══════════════════════════════════════════
 async function envoyerMessage() {
   const nom  =document.getElementById('c-nom').value.trim();
   const tel  =document.getElementById('c-tel').value.trim();
   const objet=document.getElementById('c-objet').value;
   const msg  =document.getElementById('c-message').value.trim();
-  if (!nom||!msg){alert('Veuillez remplir au moins votre nom et votre message.');return;}
+  if (!nom||!msg){ showToast('Veuillez remplir au moins votre nom et votre message.', 'error'); return; }
   const btn=document.querySelector('.btn-submit[onclick="envoyerMessage()"]');
   if(btn){btn.textContent='Envoi...';btn.disabled=true;}
   await window.sauvegarderMessage(nom,tel,objet,msg);
   if(btn){btn.textContent='Envoyer le message';btn.disabled=false;}
+  showToast('Message envoyé avec succès ! Nous vous répondrons sous 24h.', 'success');
   document.getElementById('contact-ok').style.display='block';
   setTimeout(()=>document.getElementById('contact-ok').style.display='none',4000);
   document.getElementById('c-nom').value='';
@@ -1644,7 +2773,9 @@ async function envoyerMessage() {
   document.getElementById('c-message').value='';
 }
 
-// ── Formulaire annonce ──
+// ══════════════════════════════════════════
+//  FORMULAIRE ANNONCE
+// ══════════════════════════════════════════
 function ouvrirFormAnnonce(){
   document.getElementById('af-titre').value='';
   document.getElementById('af-corps').value='';
@@ -1655,7 +2786,7 @@ async function soumettrAnnonce(){
   const titre=document.getElementById('af-titre').value.trim();
   const corps=document.getElementById('af-corps').value.trim();
   const type =document.getElementById('af-type').value;
-  if(!titre||!corps){alert('Remplissez le titre et le contenu.');return;}
+  if(!titre||!corps){ showToast('Remplissez le titre et le contenu.', 'error'); return; }
   const btn=document.getElementById('af-btn');
   btn.textContent='Publication...'; btn.disabled=true;
   await window.ajouterAnnonce(titre,corps,type);
@@ -1663,12 +2794,122 @@ async function soumettrAnnonce(){
   fermerFormAnnonce();
 }
 
-// ── Show upload zone after galerie loads ──
+// ══════════════════════════════════════════
+//  UPLOAD ZONE INIT
+// ══════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('uploadZoneWrapper').style.display='block';
 });
 
-// ── Smooth scroll ──
+// ══════════════════════════════════════════
+//  LOGO MANAGEMENT
+// ══════════════════════════════════════════
+const LOGO_KEY = 'asd_school_logo_v1';
+let _pendingLogoDataUrl = null;
+
+function ouvrirLogoModal() {
+  document.getElementById('logoModal').classList.add('open');
+}
+function fermerLogoModal() {
+  document.getElementById('logoModal').classList.remove('open');
+  _pendingLogoDataUrl = null;
+  document.getElementById('logoPreviewArea').style.display = 'none';
+  document.getElementById('logoFileInput').value = '';
+  // Reset drop zone
+  document.getElementById('logoDropZone').classList.remove('dragover');
+}
+
+function handleLogoFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _pendingLogoDataUrl = e.target.result;
+    // Show previews
+    ['previewLarge', 'previewNav', 'previewFooter'].forEach(id => {
+      document.getElementById(id).src = _pendingLogoDataUrl;
+    });
+    document.getElementById('logoPreviewArea').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function appliquerLogo() {
+  if (!_pendingLogoDataUrl) return;
+  try {
+    localStorage.setItem(LOGO_KEY, _pendingLogoDataUrl);
+  } catch(e) {
+    // Storage full — still apply in-session
+  }
+  _appliquerLogoPartout(_pendingLogoDataUrl);
+  fermerLogoModal();
+  showToast('✅ Logo appliqué avec succès !', 'success');
+}
+
+function reinitialiserLogo() {
+  localStorage.removeItem(LOGO_KEY);
+  _retirerLogoPartout();
+  fermerLogoModal();
+  showToast('Logo réinitialisé', 'info');
+}
+
+function _appliquerLogoPartout(src) {
+  const zones = [
+    { id: 'preloaderEmblem', size: '26px' },
+    { id: 'navLogoEmblem',   size: '17px' },
+    { id: 'footerEmblem',    size: '20px' }
+  ];
+  zones.forEach(({ id }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = '';
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = 'Logo ASD';
+    el.appendChild(img);
+    el.classList.add('logo-applied');
+    setTimeout(() => el.classList.remove('logo-applied'), 600);
+  });
+  // Update favicon
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><image href='${src}' width='100' height='100'/></svg>`;
+  document.querySelector('link[rel="icon"]').href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function _retirerLogoPartout() {
+  const zones = [
+    { id: 'preloaderEmblem', text: 'ASD' },
+    { id: 'navLogoEmblem',   text: 'ASD' },
+    { id: 'footerEmblem',    text: 'ASD' }
+  ];
+  zones.forEach(({ id, text }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = text;
+  });
+  // Reset favicon
+  document.querySelector('link[rel="icon"]').href = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23C9A84C'/><text y='.9em' font-size='58' font-family='Georgia,serif' font-weight='bold' fill='%2306080F' x='8'>A</text></svg>`;
+}
+
+// Drag & drop support
+document.addEventListener('DOMContentLoaded', () => {
+  const dropZone = document.getElementById('logoDropZone');
+  if (!dropZone) return;
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleLogoFile(file);
+  });
+
+  // Restore saved logo on page load
+  try {
+    const saved = localStorage.getItem(LOGO_KEY);
+    if (saved) _appliquerLogoPartout(saved);
+  } catch(e) {}
+});
+
+
 document.querySelectorAll('a[href^="#"]').forEach(a=>{
   a.addEventListener('click',e=>{
     e.preventDefault();
